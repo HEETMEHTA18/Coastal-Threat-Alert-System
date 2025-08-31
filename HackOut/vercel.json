@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "buildCommand": "cd frontend && rm -rf node_modules package-lock.json && npm install --force && npm run build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "cd frontend && npm install --force",
+  "framework": "vite",
+  "build": {
+    "env": {
+      "NODE_VERSION": "22",
+      "NPM_FLAGS": "--force",
+      "ROLLUP_SKIP_NATIVE": "true"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+# Dependencies
+node_modules
+
+# Environment files
+.env.local
+.env.*.local
+
+# Build outputs
+dist
+.vite
+
+# Development files
+*.log
+.DS_Store
+.vscode
+.idea
+
+# Testing
+coverage
+
+# Temporary files
+*.tmp
+*.temp

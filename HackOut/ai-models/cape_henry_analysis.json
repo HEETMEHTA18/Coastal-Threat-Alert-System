@@ -1,0 +1,221 @@
+{
+  "observations": [
+    {
+      "timestamp": "2025-08-30 00:08",
+      "speed_knots": 0.809,
+      "direction_degrees": 99.0,
+      "bin_depth": 4,
+      "speed_ms": 0.41618519600000003
+    },
+    {
+      "timestamp": "2025-08-30 00:14",
+      "speed_knots": 0.848,
+      "direction_degrees": 104.0,
+      "bin_depth": 4,
+      "speed_ms": 0.436248512
+    },
+    {
+      "timestamp": "2025-08-30 00:20",
+      "speed_knots": 0.84,
+      "direction_degrees": 118.0,
+      "bin_depth": 4,
+      "speed_ms": 0.43213296
+    },
+    {
+      "timestamp": "2025-08-30 00:26",
+      "speed_knots": 0.89,
+      "direction_degrees": 98.0,
+      "bin_depth": 4,
+      "speed_ms": 0.45785516000000004
+    },
+    {
+      "timestamp": "2025-08-30 00:32",
+      "speed_knots": 0.853,
+      "direction_degrees": 115.0,
+      "bin_depth": 4,
+      "speed_ms": 0.438820732
+    },
+    {
+      "timestamp": "2025-08-30 00:38",
+      "speed_knots": 0.826,
+      "direction_degrees": 110.0,
+      "bin_depth": 4,
+      "speed_ms": 0.42493074399999997
+    },
+    {
+      "timestamp": "2025-08-30 00:44",
+      "speed_knots": 0.758,
+      "direction_degrees": 116.0,
+      "bin_depth": 4,
+      "speed_ms": 0.389948552
+    },
+    {
+      "timestamp": "2025-08-30 00:50",
+      "speed_knots": 0.768,
+      "direction_degrees": 115.0,
+      "bin_depth": 4,
+      "speed_ms": 0.39509299200000003
+    },
+    {
+      "timestamp": "2025-08-30 01:08",
+      "speed_knots": 0.801,
+      "direction_degrees": 105.0,
+      "bin_depth": 4,
+      "speed_ms": 0.412069644
+    },
+    {
+      "timestamp": "2025-08-30 01:14",
+      "speed_knots": 0.686,
+      "direction_degrees": 120.0,
+      "bin_depth": 4,
+      "speed_ms": 0.352908584
+    },
+    {
+      "timestamp": "2025-08-30 01:20",
+      "speed_knots": 0.634,
+      "direction_degrees": 97.0,
+      "bin_depth": 4,
+      "speed_ms": 0.326157496
+    },
+    {
+      "timestamp": "2025-08-30 01:26",
+      "speed_knots": 0.484,
+      "direction_degrees": 102.0,
+      "bin_depth": 4,
+      "speed_ms": 0.248990896
+    },
+    {
+      "timestamp": "2025-08-30 01:32",
+      "speed_knots": 0.544,
+      "direction_degrees": 108.0,
+      "bin_depth": 4,
+      "speed_ms": 0.279857536
+    },
+    {
+      "timestamp": "2025-08-30 01:38",
+      "speed_knots": 0.5,
+      "direction_degrees": 104.0,
+      "bin_depth": 4,
+      "speed_ms": 0.257222
+    },
+    {
+      "timestamp": "2025-08-30 01:44",
+      "speed_knots": 0.47,
+      "direction_degrees": 105.0,
+      "bin_depth": 4,
+      "speed_ms": 0.24178868
+    },
+    {
+      "timestamp": "2025-08-30 01:50",
+      "speed_knots": 0.568,
+      "direction_degrees": 119.0,
+      "bin_depth": 4,
+      "speed_ms": 0.292204192
+    },
+    {
+      "timestamp": "2025-08-30 01:56",
+      "speed_knots": 0.367,
+      "direction_degrees": 109.0,
+      "bin_depth": 4,
+      "speed_ms": 0.188800948
+    },
+    {
+      "timestamp": "2025-08-30 02:02",
+      "speed_knots": 0.334,
+      "direction_degrees": 102.0,
+      "bin_depth": 4,
+      "speed_ms": 0.17182429600000002
+    },
+    {
+      "timestamp": "2025-08-30 02:08",
+      "speed_knots": 0.34,
+      "direction_degrees": 108.0,
+      "bin_depth": 4,
+      "speed_ms": 0.17491096
+    },
+    {
+      "timestamp": "2025-08-30 02:14",
+      "speed_knots": 0.383,
+      "direction_degrees": 105.0,
+      "bin_depth": 4,
+      "speed_ms": 0.197032052
+    },
+    {
+      "timestamp": "2025-08-30 02:20",
+      "speed_knots": 0.327,
+      "direction_degrees": 118.0,
+      "bin_depth": 4,
+      "speed_ms": 0.16822318800000002
+    },
+    {
+      "timestamp": "2025-08-30 02:26",
+      "speed_knots": 0.284,
+      "direction_degrees": 121.0,
+      "bin_depth": 4,
+      "speed_ms": 0.146102096
+    },
+    {
+      "timestamp": "2025-08-30 02:32",
+      "speed_knots": 0.157,
+      "direction_degrees": 137.0,
+      "bin_depth": 4,
+      "speed_ms": 0.08076770800000001
+    },
+    {
+      "timestamp": "2025-08-30 02:38",
+      "speed_knots": 0.189,
+      "direction_degrees": 139.0,
+      "bin_depth": 4,
+      "speed_ms": 0.097229916
+    },
+    {
+      "timestamp": "2025-08-30 02:44",
+      "speed_knots": 0.159,
+      "direction_degrees": 209.0,
+      "bin_depth": 4,
+      "speed_ms": 0.081796596
+    }
+  ],
+  "analysis": {
+    "station_info": {
+      "id": "cb0102",
+      "name": "Cape Henry LB 2CH",
+      "latitude": 36.9594,
+      "longitude": -76.0128,
+      "location": "Chesapeake Bay entrance"
+    },
+    "data_summary": {
+      "total_measurements": 25,
+      "time_span": "2025-08-30 00:08 to 2025-08-30 02:44",
+      "duration_minutes": 65.0
+    },
+    "current_statistics": {
+      "mean_speed_knots": 0.55276,
+      "max_speed_knots": 0.89,
+      "min_speed_knots": 0.157,
+      "mean_speed_ms": 0.28436406544,
+      "max_speed_ms": 0.45785516000000004,
+      "min_speed_ms": 0.08076770800000001,
+      "mean_direction": 115.32
+    },
+    "trend_analysis": {
+      "trend_slope_ms_per_measurement": -0.016510486590769233,
+      "trend_description": "decreasing",
+      "speed_change_over_period": -0.33438860000000004,
+      "largest_speed_jump": 0.10340324399999998
+    },
+    "threat_assessment": {
+      "rip_current_risk": "low",
+      "erosion_potential": "low",
+      "navigation_hazard": "low",
+      "pollutant_transport": "low"
+    },
+    "tidal_indicators": {
+      "speed_peaks_count": 7,
+      "speed_troughs_count": 6,
+      "avg_direction_change": 11.5,
+      "direction_stability": "stable",
+      "tidal_phase": "weakening"
+    }
+  }
+}
