@@ -40,7 +40,7 @@ const SatelliteMap = () => {
     
     // If Google Maps script is not loaded, create it
     const script = document.createElement('script');
-    script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyDzSyOCYorH5j3BdRESxMvjQx5-ShAfM1w&libraries=geometry';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=geometry`;
     script.async = true;
     script.defer = true;
     
@@ -190,7 +190,7 @@ const SatelliteMap = () => {
         setLoadingStatus('Downloading Google Maps script...');
         
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDzSyOCYorH5j3BdRESxMvjQx5-ShAfM1w&libraries=geometry&loading=async`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=geometry&loading=async`;
         script.async = true;
         script.defer = true;
         

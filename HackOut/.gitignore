@@ -1,36 +1,303 @@
-# Logs
-logs
-*.log
+# ==========================================
+# CTAS - Coastal Threat Alert System
+# Comprehensive Security .gitignore
+# ==========================================
+
+# ==========================================
+# ENVIRONMENT VARIABLES & SECRETS - CRITICAL
+# ==========================================
+# ALL environment files containing API keys and secrets
+.env
+.env.*
+!.env.example
+!.env.template
+*.env
+*/.env
+*/.env.*
+
+# Backend environment files
+backend/.env*
+!backend/.env.example
+
+# Frontend environment files  
+frontend/.env*
+!frontend/.env.example
+
+# Local environment overrides
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+
+# ==========================================
+# API KEYS & CONFIGURATION FILES
+# ==========================================
+# Files that might contain secrets
+config/secrets.js
+config/keys.js
+config/private.json
+secrets/
+keys/
+credentials/
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+
+# Database credentials
+database.json
+db-config.json
+mongo-config.json
+
+# Third-party service configs
+twilio-config.json
+google-credentials.json
+aws-credentials.json
+firebase-config.json
+
+# ==========================================
+# DEPENDENCIES & BUILD
+# ==========================================
+# Dependencies
+node_modules/
+*/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+package-lock.json
+yarn.lock
 
-# Environment files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-*.env
+# Build outputs
+dist/
+build/
+*/dist/
+*/build/
+.next/
+out/
+.nuxt/
+.nitro/
+.cache/
+.output/
 
-node_modules
-dist
-dist-ssr
-*.local
+# ==========================================
+# DEPLOYMENT & HOSTING
+# ==========================================
+# Vercel
+.vercel/
+*/.vercel/
+.vercel
 
-# Editor directories and files
-.vscode/*
+# Netlify
+.netlify/
+.netlify
+
+# Other deployment platforms
+.firebase/
+.aws/
+.gcp/
+.azure/
+
+# ==========================================
+# LOGS & RUNTIME
+# ==========================================
+# Log files
+logs/
+*.log
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools
+coverage/
+*.lcov
+.nyc_output/
+
+# Temporary folders
+tmp/
+temp/
+.tmp/
+
+# ==========================================
+# DEVELOPMENT & TESTING
+# ==========================================
+# Test files that might contain secrets
+test-secrets.js
+*.test.env
+coverage-secrets/
+
+# Mock data with potential secrets
+mock-data-private/
+test-data-private/
+
+# ==========================================
+# EDITOR & IDE FILES
+# ==========================================
+# VS Code
+.vscode/
+!.vscode/settings.json.example
 !.vscode/extensions.json
-.idea
+!.vscode/launch.json.example
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+
+# ==========================================
+# OPERATING SYSTEM FILES
+# ==========================================
+# macOS
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
 
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
 
+# Linux
+*~
+.directory
+.Trash-*
+
+# ==========================================
+# CACHE & TEMPORARY FILES
+# ==========================================
+# Cache directories
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional npm cache directory
+.npm
+
+# Optional yarn cache
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# ==========================================
+# DOCUMENTATION WITH SECRETS
+# ==========================================
+# Private documentation that might contain secrets
+PRIVATE.md
+SECRETS.md
+API_KEYS.md
+deployment-notes-private.txt
+production-setup-private.md
+admin-guide-private.md
+
+# ==========================================
+# BACKUP & ARCHIVE FILES
+# ==========================================
+*.backup
+*.bak
+*.old
+*.orig
+*.rej
+*.swp
+*.tmp
+
+# Database backups
+*.sql
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+
+# ==========================================
+# USER UPLOADS & MEDIA
+# ==========================================
+# User uploaded files (might contain sensitive content)
+uploads/
+public/uploads/
+static/uploads/
+user-content/
+
+# ==========================================
+# PYTHON FILES (if any)
+# ==========================================
 *.pyc
 __pycache__/
+*.pyo
+*.pyd
+.Python
+.python-version
+
+# ==========================================
+# PROJECT SPECIFIC EXCLUDES
+# ==========================================
+# Generated files
+docs/api/generated/
+docs/build/
+
+# Local testing files
+test-local/
+local-testing/
+
+# Performance monitoring
+.clinic/
+
+# Diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Webpack bundles analysis
+webpack-bundle-analyzer-report.html
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# End of CTAS .gitignore

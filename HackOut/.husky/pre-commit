@@ -1,0 +1,38 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# ========================================
+# CTAS Pre-commit Security Hook
+# Prevents committing sensitive data
+# ========================================
+
+echo "🔒 Running security checks before commit..."
+
+# Check for common secrets patterns
+SECRETS_PATTERN="(AIza[0-9A-Za-z_-]{35}|sk-[a-zA-Z0-9]{32,}|AC[a-zA-Z0-9]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
+
+# Check staged files for secrets
+if git diff --cached --name-only | xargs grep -l -E "$SECRETS_PATTERN" 2>/dev/null; then
+    echo "❌ ERROR: Potential secrets found in staged files!"
+    echo "Please remove sensitive data before committing."
+    echo "Files with potential secrets:"
+    git diff --cached --name-only | xargs grep -l -E "$SECRETS_PATTERN" 2>/dev/null
+    exit 1
+fi
+
+# Check for .env files (except .env.example)
+if git diff --cached --name-only | grep -E "\.env$|\.env\..*" | grep -v "\.env\.example" | grep -v "\.env\.template"; then
+    echo "❌ ERROR: Environment files should not be committed!"
+    echo "Files found:"
+    git diff --cached --name-only | grep -E "\.env$|\.env\..*" | grep -v "\.env\.example" | grep -v "\.env\.template"
+    exit 1
+fi
+
+# Check for hardcoded API keys in JavaScript/JSX files
+if git diff --cached --name-only | grep -E "\.(js|jsx|ts|tsx)$" | xargs grep -l "AIza\|sk-\|AC[a-zA-Z0-9]" 2>/dev/null; then
+    echo "❌ ERROR: Hardcoded API keys found in code!"
+    echo "Please use environment variables instead."
+    exit 1
+fi
+
+echo "✅ Security checks passed!"
