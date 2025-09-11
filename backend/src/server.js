@@ -7,14 +7,10 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 
 // Load environment variables from .env file - this must happen before importing modules that use env vars
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
+console.log("MONGODB_URI =", process.env.MONGODB_URI);
+console.log("PORT =", process.env.PORT);
 
-// Verify MongoDB URI is loaded
-console.log("MongoDB URI defined:", !!process.env.MONGODB_URI);
-if (!process.env.MONGODB_URI) {
-  console.error("ERROR: MongoDB URI is not defined in environment variables!");
-  process.exit(1);
-}
 
 const connectDB = require('./lib/db.js');
 const app = express();

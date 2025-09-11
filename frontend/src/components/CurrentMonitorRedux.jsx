@@ -1,13 +1,14 @@
 // Enhanced CurrentMonitor component using Redux
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { Activity, MapPin, Clock, AlertTriangle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { Activity, MapPin, Clock, AlertTriangle, RefreshCw, Wifi, WifiOff, Info, ChevronDown, ChevronUp, Waves, Navigation, BookOpen } from 'lucide-react';
 import { useCurrentData, useConnectionStatus, useUI } from '../store/hooks';
 import { fetchCurrentsData, fetchThreatAssessment } from '../store/slices/noaaSlice';
 
 const CurrentMonitor = ({ className = '' }) => {
   const dispatch = useDispatch();
   const intervalRef = useRef(null);
+  const [expandedSection, setExpandedSection] = useState(null);
   
   const { data, isLoading, error, freshness, hasData, latest, station } = useCurrentData();
   const { isConnected, noaaConnection } = useConnectionStatus();

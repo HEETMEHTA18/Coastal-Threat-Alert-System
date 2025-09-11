@@ -9,7 +9,7 @@ import { useAuth, useUI, useDashboard, useConnectionStatus } from '../store/hook
 import { setActiveTab, toggleSidebar, openModal } from '../store/slices/uiSlice';
 import { logoutUser } from '../store/slices/authSlice';
 import DashboardProvider from './DashboardProvider';
-import CurrentMonitorRedux from './CurrentMonitorRedux';
+import EnhancedCurrentMonitor from './EnhancedCurrentMonitor';
 import WeatherWidget from './WeatherWidget';
 import SatelliteMapWorking from './SatelliteMapWorking';
 import CommunityReports from './CommunityReports';
@@ -158,12 +158,8 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
       
       case 'currents':
         return (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <CurrentMonitorRedux />
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Current Trends</h3>
-              <p className="text-slate-400">Historical current data visualization coming soon...</p>
-            </div>
+          <div className="space-y-6">
+            <EnhancedCurrentMonitor />
           </div>
         );
       
