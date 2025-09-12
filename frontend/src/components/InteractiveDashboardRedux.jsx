@@ -113,14 +113,23 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                 </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Connection</span>
+                    <span className="text-slate-400 flex items-center">
+                      <div className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
+                      Connection
+                    </span>
                     <span className={`font-semibold ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
                       {isConnected ? 'Connected' : 'Disconnected'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Sync Status</span>
-                    <span className="text-white font-semibold capitalize">{syncStatus}</span>
+                    <span className={`font-semibold capitalize ${
+                      syncStatus === 'synced' ? 'text-green-400' : 
+                      syncStatus === 'syncing' ? 'text-yellow-400' : 
+                      'text-red-400'
+                    }`}>
+                      {syncStatus}
+                    </span>
                   </div>
                   <div className="border-t border-slate-600 pt-4 mt-4">
                     <div className="text-slate-400 text-xs mb-2">Layer: Satellite View</div>
@@ -140,14 +149,25 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-400">Cape Henry Station</span>
-                    <span className="text-red-400">disconnected</span>
+                    <span className={`${isConnected ? 'text-green-400' : 'text-red-400'}`}>
+                      {isConnected ? 'connected' : 'disconnected'}
+                    </span>
                   </div>
-                  <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3">
-                    <div className="flex items-center text-red-400 text-sm">
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Error: Failed to fetch
+                  {!isConnected ? (
+                    <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3">
+                      <div className="flex items-center text-red-400 text-sm">
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        {syncStatus === 'offline' ? 'No internet connection' : 'Server unavailable'}
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-3">
+                      <div className="flex items-center text-green-400 text-sm">
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Connected and monitoring
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -3,10 +3,10 @@ import { configureStore } from '@reduxjs/toolkit';
 import { persistStore, persistReducer } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
 import { combineReducers } from '@reduxjs/toolkit';
-import authSlice from './slices/authSlice';
-import noaaSlice from './slices/noaaSlice';
-import alertSlice from './slices/alertSlice';
-import uiSlice from './slices/uiSlice';
+import authReducer from './slices/authSlice';
+import noaaReducer from './slices/noaaSlice';
+import alertReducer from './slices/alertSlice';
+import uiReducer from './slices/uiSlice';
 
 // Persist configuration
 const persistConfig = {
@@ -17,10 +17,10 @@ const persistConfig = {
 
 // Combine reducers
 const rootReducer = combineReducers({
-  auth: authSlice,
-  noaa: noaaSlice,
-  alerts: alertSlice,
-  ui: uiSlice,
+  auth: authReducer,
+  noaa: noaaReducer,
+  alerts: alertReducer,
+  ui: uiReducer,
 });
 
 // Create persisted reducer
@@ -39,6 +39,8 @@ export const store = configureStore({
     }),
   devTools: true,
 });
+
+export const persistor = persistStore(store);
 
 // Export the configured store
 export default store;

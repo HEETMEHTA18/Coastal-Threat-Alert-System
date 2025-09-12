@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import { useDispatch } from 'react-redux';
 import { loginUser, registerUser, setCredentials } from '../store/slices/authSlice';
+import ConnectivityIndicator from './ConnectivityIndicator';
 
 const AuthSystem = ({ onAuthSuccess, onBack }) => {
   const dispatch = useDispatch();
@@ -128,6 +129,14 @@ const AuthSystem = ({ onAuthSuccess, onBack }) => {
 
         {/* Auth Form */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+          {/* Connectivity Status */}
+          <div className="mb-6 p-3 bg-slate-800/30 rounded-lg border border-slate-600/30">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-300 text-sm">System Status</span>
+              <ConnectivityIndicator showText={true} size="small" />
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-6">
             {!isLogin && (
               <>

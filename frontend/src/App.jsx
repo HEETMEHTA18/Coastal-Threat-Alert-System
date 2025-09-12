@@ -9,6 +9,7 @@ import TestPage from './components/TestPage';
 import { useUI, useAuth } from './store/hooks';
 import { setCurrentView, setAppLoading } from './store/slices/uiSlice';
 import { initializeAuth } from './store/slices/authSlice';
+import { useInternetConnectivity } from './hooks/useConnectivity';
 
 // ProtectedRoute component to handle authentication
 const ProtectedRoute = ({ children }) => {
@@ -46,6 +47,9 @@ function AppContent() {
   const location = useLocation();
   const { loading } = useUI();
   const { user, isAuthenticated } = useAuth();
+
+  // Initialize internet connectivity monitoring
+  useInternetConnectivity();
 
   console.log('🌊 CTAS App rendering with Redux...', { user, isAuthenticated, loading: loading.app });
 

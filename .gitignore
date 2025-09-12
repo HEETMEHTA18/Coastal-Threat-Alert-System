@@ -23,6 +23,8 @@ backend/.env*
 frontend/.env*
 !frontend/.env.example
 
+Dataset_for_chatbot.csv
+
 # Local environment overrides
 .env.local
 .env.development

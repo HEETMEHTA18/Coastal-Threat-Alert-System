@@ -92,6 +92,10 @@ app.get('/api/test/weather', async (req, res) => {
   }
 });
 
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'CTAS API is running' });
+});
+
 // Catch all handler
 app.get('*', (req, res) => {
   res.status(404).json({
