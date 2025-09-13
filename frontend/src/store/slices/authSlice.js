@@ -42,16 +42,32 @@ export const loginUser = createAsyncThunk(
       
       const data = await response.json();
       
+      console.log('Backend response:', data); // Debug log
+      
+      // Backend returns data in data.data format
+      const userData = data.data?.user || data.user;
+      const token = data.data?.token || data.token;
+      
+      console.log('Extracted userData:', userData); // Debug log
+      console.log('Extracted token:', token); // Debug log
+      
+      if (!userData) {
+        throw new Error('User data not found in response');
+      }
+      
       // If the backend doesn't provide a name, generate it from email
-      if (!data.user.name || data.user.name === 'User' || data.user.name === '') {
-        data.user.name = generateNameFromEmail(data.user.email);
+      if (!userData.name || userData.name === 'User' || userData.name === '') {
+        userData.name = generateNameFromEmail(userData.email);
       }
       
       // Store in localStorage
-      localStorage.setItem('ctas_user', JSON.stringify(data.user));
-      localStorage.setItem('ctas_token', data.token);
+      localStorage.setItem('ctas_user', JSON.stringify(userData));
+      localStorage.setItem('ctas_token', token);
       
-      return data;
+      return {
+        user: userData,
+        token: token
+      };
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -60,14 +76,14 @@ export const loginUser = createAsyncThunk(
 
 export const registerUser = createAsyncThunk(
   'auth/register',
-  async ({ name, email, password, role = 'user' }, { rejectWithValue }) => {
+  async ({ name, email, password, role = 'viewer', organization }, { rejectWithValue }) => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, password, role, organization }),
       });
       
       if (!response.ok) {
@@ -77,11 +93,18 @@ export const registerUser = createAsyncThunk(
       
       const data = await response.json();
       
-      // Store in localStorage
-      localStorage.setItem('ctas_user', JSON.stringify(data.user));
-      localStorage.setItem('ctas_token', data.token);
+      // Backend returns data in data.data format
+      const userData = data.data?.user || data.user;
+      const token = data.data?.token || data.token;
       
-      return data;
+      // Store in localStorage
+      localStorage.setItem('ctas_user', JSON.stringify(userData));
+      localStorage.setItem('ctas_token', token);
+      
+      return {
+        user: userData,
+        token: token
+      };
     } catch (error) {
       return rejectWithValue(error.message);
     }

@@ -2,10 +2,10 @@ import React, { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
-import AuthSystem from './components/AuthSystem';
+import Login from './components/Login';
+import Register from './components/Register';
 import InteractiveDashboardRedux from './components/InteractiveDashboardRedux';
 import LogoutPage, { LogoutSuccessPage } from './components/LogoutPage';
-import TestPage from './components/TestPage';
 import ThemeProvider from './components/ThemeProvider';
 import { useUI, useAuth } from './store/hooks';
 import { setCurrentView, setAppLoading } from './store/slices/uiSlice';
@@ -95,9 +95,15 @@ function AppContent() {
     <ThemeProvider>
       <Routes>
         {/* Public routes */}
-        <Route path="/" element={<LandingPage onGetStarted={() => navigate('/login')} />} />
-        <Route path="/login" element={<AuthSystem />} />
-        <Route path="/test" element={<TestPage />} />
+        <Route path="/" element={
+          <LandingPage 
+            onGetStarted={() => navigate('/register')} 
+            onLogin={() => navigate('/login')}
+            onRegister={() => navigate('/register')}
+          />
+        } />
+        <Route path="/login" element={<Login onBack={() => navigate('/')} />} />
+        <Route path="/register" element={<Register onBack={() => navigate('/')} />} />
         <Route path="/logout-success" element={<LogoutSuccessPage onReturnHome={() => {
           localStorage.removeItem('ctas_user');
           localStorage.removeItem('ctas_token');

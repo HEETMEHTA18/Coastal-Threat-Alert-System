@@ -18,9 +18,7 @@ import {
 import { useDispatch } from 'react-redux';
 import { useUI, useAuth } from '../store/hooks';
 import { closeModal, updateTheme, updateNotificationSettings } from '../store/slices/uiSlice';
-import NameRegenerator from './NameRegenerator';
 import EditableUserProfile from './EditableUserProfile';
-import EmailNameGenerator from './EmailNameGenerator';
 
 const SettingsModal = () => {
   const dispatch = useDispatch();
@@ -242,8 +240,6 @@ const SettingsModal = () => {
                     </div>
                   </div>
                 </div>
-
-                <NameRegenerator />
 
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-4">Account Stats</h3>

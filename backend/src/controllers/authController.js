@@ -42,12 +42,16 @@ const register = async (req, res) => {
       });
     }
 
+    // Validate role if provided
+    const validRoles = ['admin', 'operator', 'viewer', 'community_leader'];
+    const userRole = role && validRoles.includes(role) ? role : 'viewer';
+
     // Create user data object
     const userData = {
       name: name.trim(),
       email: email.toLowerCase().trim(),
       password,
-      role: role || 'viewer'
+      role: userRole
     };
 
     // Add profile information if provided
@@ -95,12 +99,28 @@ const register = async (req, res) => {
 
   } catch (error) {
     console.error('Registration error:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      errors: error.errors,
+      stack: error.stack
+    });
     
     // Handle specific MongoDB errors
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
         message: 'Email already exists'
+      });
+    }
+
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationErrors
       });
     }
 

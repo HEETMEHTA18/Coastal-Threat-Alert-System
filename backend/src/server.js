@@ -34,7 +34,6 @@ const corsOptions = {
     
     const allowedOrigins = [
       'http://localhost:5173',  // Local development
-      'http://localhost:3000',  // Alternative local port
       'https://coastal-threat-alert-system-two.vercel.app', // Remove trailing slash
       'https://coastal-threat-alert-system-myz7b50jn-heetmehta18s-projects.vercel.app', // Actual Vercel URL
       ...envOrigins // Spread environment origins

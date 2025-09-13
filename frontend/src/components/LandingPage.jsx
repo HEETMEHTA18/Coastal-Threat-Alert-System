@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { ChevronRight, Play, BarChart3, Shield, Users, Globe, AlertTriangle, Waves, Zap, Award, TrendingUp, MapPin } from 'lucide-react';
+import { ChevronRight, Play, BarChart3, Shield, Users, Globe, AlertTriangle, Waves, Zap, Award, TrendingUp, MapPin, LogIn, UserPlus } from 'lucide-react';
 
-const LandingPage = ({ onGetStarted }) => {
+const LandingPage = ({ onGetStarted, onLogin, onRegister }) => {
   const [hoveredCard, setHoveredCard] = useState(null);
   const [currentStatIndex, setCurrentStatIndex] = useState(0);
 
@@ -102,14 +102,22 @@ const LandingPage = ({ onGetStarted }) => {
             </div>
             <span className="text-white font-bold text-xl sm:text-2xl">CTAS</span>
           </div>
-          <button 
-            onClick={onGetStarted}
-            className="bg-white/10 backdrop-blur-lg text-white px-4 py-2 sm:px-6 sm:py-3 rounded-xl border border-white/20 hover:bg-white/20 transition-all duration-300 focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900"
-            aria-label="Access dashboard"
-          >
-            <span className="hidden sm:inline">Get Started</span>
-            <span className="sm:hidden">Start</span>
-          </button>
+          <div className="flex items-center space-x-3">
+            <button 
+              onClick={onLogin || onGetStarted}
+              className="bg-white/10 backdrop-blur-lg text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg border border-white/20 hover:bg-white/20 transition-all duration-300 text-sm sm:text-base"
+              aria-label="Sign in to your account"
+            >
+              Sign In
+            </button>
+            <button 
+              onClick={onRegister || onGetStarted}
+              className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:shadow-lg transition-all duration-300 text-sm sm:text-base"
+              aria-label="Create new account"
+            >
+              Sign Up
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -139,12 +147,21 @@ const LandingPage = ({ onGetStarted }) => {
 
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center px-4">
             <button 
-              onClick={onGetStarted}
-              className="group bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-bold text-base sm:text-lg shadow-2xl hover:shadow-cyan-500/25 transform hover:scale-105 transition-all duration-300 flex items-center space-x-2 focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900"
-              aria-label="Get started with CTAS threat monitoring"
+              onClick={onRegister || onGetStarted}
+              className="group bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-bold text-base sm:text-lg shadow-2xl hover:shadow-emerald-500/25 transform hover:scale-105 transition-all duration-300 flex items-center space-x-2 focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+              aria-label="Create new account and get started"
             >
+              <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Get Started</span>
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+            
+            <button 
+              onClick={onLogin || onGetStarted}
+              className="group bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-bold text-base sm:text-lg shadow-2xl hover:shadow-cyan-500/25 transform hover:scale-105 transition-all duration-300 flex items-center space-x-2 focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+              aria-label="Sign in to existing account"
+            >
+              <LogIn className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span>Sign In</span>
             </button>
             
             <button 
@@ -307,9 +324,9 @@ const LandingPage = ({ onGetStarted }) => {
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3 sm:mb-4">Ready to protect your coast?</h2>
           <p className="text-cyan-200 mb-4 sm:mb-6 text-sm sm:text-base">Join the next generation of coastal threat monitoring</p>
           <button 
-            onClick={onGetStarted}
+            onClick={onRegister || onGetStarted}
             className="bg-gradient-to-r from-emerald-500 to-blue-500 text-white px-8 sm:px-12 py-3 sm:py-4 rounded-2xl font-bold text-base sm:text-lg shadow-2xl hover:shadow-emerald-500/25 transform hover:scale-105 transition-all duration-300 focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-slate-900"
-            aria-label="Get started with coastal threat monitoring system"
+            aria-label="Create account and get started with coastal threat monitoring system"
           >
             Get Started Now
           </button>

@@ -23,7 +23,7 @@ import {
   Menu
 } from 'lucide-react';
 import weatherService from '../services/weatherService';
-import SimpleMapboxFallback from './SimpleMapboxFallback';
+import FallbackMap from './FallbackMap';
 import OceanCurrentsPanel from './OceanCurrentsPanel';
 import CurrentsVisualizationService from '../services/currentsVisualizationService';
 
@@ -56,7 +56,7 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
 
   // Show fallback component if no token or if map initialization failed
   if (!hasMapboxToken || mapError) {
-    return <SimpleMapboxFallback />;
+    return <FallbackMap />;
   }
 
   // Coastal threat zones data with real Indian coastal examples
