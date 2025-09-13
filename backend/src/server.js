@@ -28,12 +28,20 @@ const corsOptions = {
     // Allow requests with no origin (mobile apps, etc.)
     if (!origin) return callback(null, true);
     
+    // Handle comma-separated origins from environment variable
+    const envOrigins = process.env.CORS_ORIGIN ? 
+      process.env.CORS_ORIGIN.split(',').map(url => url.trim()) : [];
+    
     const allowedOrigins = [
       'http://localhost:5173',  // Local development
       'http://localhost:3000',  // Alternative local port
-      'https://your-frontend.vercel.app', // Replace with your actual Vercel domain
-      process.env.CORS_ORIGIN   // Environment variable
+      'https://coastal-threat-alert-system-two.vercel.app', // Remove trailing slash
+      'https://coastal-threat-alert-system-myz7b50jn-heetmehta18s-projects.vercel.app', // Actual Vercel URL
+      ...envOrigins // Spread environment origins
     ].filter(Boolean); // Remove undefined values
+    
+    console.log('CORS check - Origin:', origin);
+    console.log('CORS check - Allowed origins:', allowedOrigins);
     
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
