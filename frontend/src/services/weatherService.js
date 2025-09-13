@@ -1,7 +1,7 @@
 // Weather Service for real-time weather data integration
 class WeatherService {
   constructor() {
-    this.apiKey = '28f50b598197a700d0fdee8fd331f99c';
+    this.apiKey = import.meta.env.VITE_OPENWEATHERMAP_API_KEY || '';
     this.baseUrl = 'https://api.openweathermap.org/data/2.5';
   }
 

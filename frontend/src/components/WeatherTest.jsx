@@ -10,7 +10,7 @@ const WeatherTest = () => {
     setError(null);
     
     try {
-      const apiKey = '28f50b598197a700d0fdee8fd331f99c';
+      const apiKey = import.meta.env.VITE_OPENWEATHERMAP_API_KEY || '';
       const lat = 19.0760; // Mumbai
       const lng = 72.8777;
       
