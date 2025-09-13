@@ -10,7 +10,7 @@ export const useInternetConnectivity = () => {
     // Function to check backend connectivity
     const checkBackendConnectivity = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
@@ -131,7 +131,7 @@ export const useBackendConnectivity = () => {
 
   const checkBackendConnection = async () => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 

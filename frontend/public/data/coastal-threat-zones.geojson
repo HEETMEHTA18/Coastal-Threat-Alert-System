@@ -1,0 +1,269 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "mumbai-critical-001",
+        "name": "Mumbai High Risk Coastal Zone",
+        "threatLevel": "critical",
+        "riskScore": 0.85,
+        "floodRisk": 0.9,
+        "stormSurgeRisk": 0.8,
+        "coastalErosion": 0.3,
+        "seaLevelRise": 0.15,
+        "population": 150000,
+        "area": "25.4 sq km",
+        "lastUpdated": "2025-09-12T17:00:00Z",
+        "alerts": ["Storm surge warning", "High tide alert", "Evacuation advisory"],
+        "recommendations": [
+          "Evacuate low-lying areas immediately",
+          "Move to higher ground",
+          "Avoid coastal roads",
+          "Stock emergency supplies"
+        ],
+        "emergencyContacts": [
+          "Mumbai Emergency: 108",
+          "Coast Guard: 1554",
+          "Local Police: 100"
+        ],
+        "nearestShelters": ["Bandra Community Center", "Worli Emergency Shelter"],
+        "weatherConditions": {
+          "windSpeed": "25 kmph",
+          "waveHeight": "3.2 meters",
+          "tideLevel": "High"
+        }
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [72.8100, 19.0200],
+          [72.9000, 19.0200],
+          [72.9000, 19.1000],
+          [72.8100, 19.1000],
+          [72.8100, 19.0200]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "chennai-high-002",
+        "name": "Chennai Marina Beach Alert Zone",
+        "threatLevel": "high",
+        "riskScore": 0.75,
+        "floodRisk": 0.7,
+        "stormSurgeRisk": 0.8,
+        "coastalErosion": 0.4,
+        "seaLevelRise": 0.12,
+        "population": 120000,
+        "area": "18.6 sq km",
+        "lastUpdated": "2025-09-12T17:00:00Z",
+        "alerts": ["Cyclone watch", "Heavy rainfall warning"],
+        "recommendations": [
+          "Monitor weather updates",
+          "Prepare evacuation plan",
+          "Secure loose objects",
+          "Check emergency kit"
+        ],
+        "emergencyContacts": [
+          "Chennai Emergency: 108",
+          "Coast Guard: 1554",
+          "Disaster Management: 044-28524391"
+        ],
+        "nearestShelters": ["Marina Beach Emergency Center", "T. Nagar Relief Camp"],
+        "weatherConditions": {
+          "windSpeed": "35 kmph",
+          "waveHeight": "2.8 meters",
+          "tideLevel": "Rising"
+        }
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [80.2500, 13.0500],
+          [80.3000, 13.0500],
+          [80.3000, 13.1000],
+          [80.2500, 13.1000],
+          [80.2500, 13.0500]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "kerala-medium-003",
+        "name": "Kerala Backwater Monitoring Zone",
+        "threatLevel": "medium",
+        "riskScore": 0.55,
+        "floodRisk": 0.6,
+        "stormSurgeRisk": 0.5,
+        "coastalErosion": 0.5,
+        "seaLevelRise": 0.10,
+        "population": 85000,
+        "area": "32.1 sq km",
+        "lastUpdated": "2025-09-12T17:00:00Z",
+        "alerts": ["Saltwater intrusion monitoring", "Monsoon preparedness"],
+        "recommendations": [
+          "Monitor well water salinity",
+          "Protect agricultural areas",
+          "Maintain drainage systems",
+          "Support mangrove conservation"
+        ],
+        "emergencyContacts": [
+          "Kerala Emergency: 108",
+          "Disaster Management: 0471-2721566",
+          "Coast Guard: 1554"
+        ],
+        "nearestShelters": ["Kochi Relief Center", "Alleppey Community Hall"],
+        "weatherConditions": {
+          "windSpeed": "15 kmph",
+          "waveHeight": "1.5 meters",
+          "tideLevel": "Normal"
+        }
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [76.2000, 9.9000],
+          [76.3000, 9.9000],
+          [76.3000, 10.0000],
+          [76.2000, 10.0000],
+          [76.2000, 9.9000]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "goa-medium-004",
+        "name": "Goa Tourist Coast Safety Zone",
+        "threatLevel": "medium",
+        "riskScore": 0.50,
+        "floodRisk": 0.5,
+        "stormSurgeRisk": 0.4,
+        "coastalErosion": 0.6,
+        "seaLevelRise": 0.08,
+        "population": 65000,
+        "area": "12.3 sq km",
+        "lastUpdated": "2025-09-12T17:00:00Z",
+        "alerts": ["Beach erosion monitoring", "Tourist safety advisory"],
+        "recommendations": [
+          "Monitor beach conditions",
+          "Follow lifeguard instructions",
+          "Avoid isolated coastal areas",
+          "Check local weather updates"
+        ],
+        "emergencyContacts": [
+          "Goa Emergency: 108",
+          "Tourist Helpline: 0832-2437728",
+          "Coast Guard: 1554"
+        ],
+        "nearestShelters": ["Panaji Community Center", "Margao Relief Station"],
+        "weatherConditions": {
+          "windSpeed": "12 kmph",
+          "waveHeight": "1.2 meters",
+          "tideLevel": "Low"
+        }
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [73.7500, 15.4500],
+          [73.8500, 15.4500],
+          [73.8500, 15.5500],
+          [73.7500, 15.5500],
+          [73.7500, 15.4500]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "odisha-critical-005",
+        "name": "Odisha Cyclone Corridor",
+        "threatLevel": "critical",
+        "riskScore": 0.90,
+        "floodRisk": 0.95,
+        "stormSurgeRisk": 0.85,
+        "coastalErosion": 0.7,
+        "seaLevelRise": 0.18,
+        "population": 200000,
+        "area": "45.7 sq km",
+        "lastUpdated": "2025-09-12T17:00:00Z",
+        "alerts": ["Cyclone warning", "Mass evacuation order", "Storm surge alert"],
+        "recommendations": [
+          "Immediate evacuation required",
+          "Move to inland shelters",
+          "Emergency supplies critical",
+          "Follow official evacuation routes"
+        ],
+        "emergencyContacts": [
+          "Odisha Emergency: 108",
+          "Disaster Management: 0674-2534177",
+          "Coast Guard: 1554"
+        ],
+        "nearestShelters": ["Bhubaneswar Emergency Complex", "Puri Relief Center"],
+        "weatherConditions": {
+          "windSpeed": "45 kmph",
+          "waveHeight": "4.5 meters",
+          "tideLevel": "Extreme High"
+        }
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [85.8000, 20.9000],
+          [85.9500, 20.9000],
+          [85.9500, 21.0500],
+          [85.8000, 21.0500],
+          [85.8000, 20.9000]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "andhra-high-006",
+        "name": "Andhra Pradesh Coastal Belt",
+        "threatLevel": "high",
+        "riskScore": 0.70,
+        "floodRisk": 0.8,
+        "stormSurgeRisk": 0.6,
+        "coastalErosion": 0.5,
+        "seaLevelRise": 0.14,
+        "population": 110000,
+        "area": "28.9 sq km",
+        "lastUpdated": "2025-09-12T17:00:00Z",
+        "alerts": ["Flood warning", "Agricultural threat"],
+        "recommendations": [
+          "Monitor water levels",
+          "Protect livestock and crops",
+          "Prepare for potential evacuation",
+          "Stock emergency supplies"
+        ],
+        "emergencyContacts": [
+          "Andhra Pradesh Emergency: 108",
+          "Revenue Department: 0863-2340555",
+          "Coast Guard: 1554"
+        ],
+        "nearestShelters": ["Vijayawada Relief Center", "Guntur Emergency Shelter"],
+        "weatherConditions": {
+          "windSpeed": "28 kmph",
+          "waveHeight": "2.3 meters",
+          "tideLevel": "High"
+        }
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [80.1000, 16.2000],
+          [80.3000, 16.2000],
+          [80.3000, 16.4000],
+          [80.1000, 16.4000],
+          [80.1000, 16.2000]
+        ]]
+      }
+    }
+  ]
+}

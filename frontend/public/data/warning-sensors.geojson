@@ -1,0 +1,308 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "sensorId": "MUM-TG-001",
+        "name": "Mumbai Port Tidal Gauge",
+        "type": "Tidal Gauge",
+        "status": "Active",
+        "lastReading": "2025-09-12T16:30:00Z",
+        "waterLevel": 2.45,
+        "normalLevel": 1.8,
+        "alertThreshold": 3.0,
+        "criticalThreshold": 3.5,
+        "battery": 85,
+        "dataFrequency": "5 minutes",
+        "installation": "2023-01-15",
+        "maintenance": "2025-07-20",
+        "readings": {
+          "current": 2.45,
+          "1hour": 2.38,
+          "6hours": 2.12,
+          "24hours": 1.95
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [72.8777, 19.0760]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sensorId": "MUM-WS-002",
+        "name": "Bandra Weather Station",
+        "type": "Weather Sensor",
+        "status": "Active",
+        "lastReading": "2025-09-12T16:30:00Z",
+        "windSpeed": 25.3,
+        "windDirection": 245,
+        "temperature": 28.5,
+        "humidity": 78,
+        "pressure": 1012.4,
+        "battery": 92,
+        "dataFrequency": "1 minute",
+        "installation": "2023-03-10",
+        "maintenance": "2025-08-15"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [72.8401, 19.0596]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sensorId": "CHN-TG-003",
+        "name": "Chennai Harbor Tide Monitor",
+        "type": "Tidal Gauge",
+        "status": "Active",
+        "lastReading": "2025-09-12T16:30:00Z",
+        "waterLevel": 1.85,
+        "normalLevel": 1.5,
+        "alertThreshold": 2.8,
+        "criticalThreshold": 3.2,
+        "battery": 76,
+        "dataFrequency": "5 minutes",
+        "installation": "2022-11-20",
+        "maintenance": "2025-06-12",
+        "readings": {
+          "current": 1.85,
+          "1hour": 1.82,
+          "6hours": 1.67,
+          "24hours": 1.52
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [80.2785, 13.0475]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sensorId": "CHN-WQ-004",
+        "name": "Marina Beach Water Quality Sensor",
+        "type": "Water Quality Monitor",
+        "status": "Active",
+        "lastReading": "2025-09-12T16:30:00Z",
+        "salinity": 35.2,
+        "temperature": 27.8,
+        "pH": 8.1,
+        "dissolvedOxygen": 6.8,
+        "turbidity": 12.3,
+        "battery": 68,
+        "dataFrequency": "15 minutes",
+        "installation": "2023-05-08",
+        "maintenance": "2025-09-01"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [80.2890, 13.0520]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sensorId": "KER-TG-005",
+        "name": "Kochi Backwater Monitor",
+        "type": "Tidal Gauge",
+        "status": "Active",
+        "lastReading": "2025-09-12T16:30:00Z",
+        "waterLevel": 0.95,
+        "normalLevel": 0.8,
+        "alertThreshold": 1.5,
+        "criticalThreshold": 2.0,
+        "battery": 89,
+        "dataFrequency": "10 minutes",
+        "installation": "2023-02-14",
+        "maintenance": "2025-08-20",
+        "readings": {
+          "current": 0.95,
+          "1hour": 0.92,
+          "6hours": 0.88,
+          "24hours": 0.81
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [76.2673, 9.9312]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sensorId": "KER-SAL-006",
+        "name": "Alleppey Salinity Monitor",
+        "type": "Salinity Sensor",
+        "status": "Active",
+        "lastReading": "2025-09-12T16:30:00Z",
+        "salinity": 22.8,
+        "normalSalinity": 18.5,
+        "alertThreshold": 25.0,
+        "criticalThreshold": 30.0,
+        "conductivity": 38.2,
+        "battery": 72,
+        "dataFrequency": "30 minutes",
+        "installation": "2023-04-22",
+        "maintenance": "2025-07-10"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [76.3388, 9.4981]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sensorId": "GOA-WS-007",
+        "name": "Panaji Coastal Weather Station",
+        "type": "Weather Sensor",
+        "status": "Active",
+        "lastReading": "2025-09-12T16:30:00Z",
+        "windSpeed": 12.4,
+        "windDirection": 180,
+        "temperature": 30.2,
+        "humidity": 82,
+        "pressure": 1014.8,
+        "battery": 94,
+        "dataFrequency": "1 minute",
+        "installation": "2023-01-30",
+        "maintenance": "2025-08-05"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [73.8278, 15.4909]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sensorId": "ODI-TG-008",
+        "name": "Paradip Port Tide Gauge",
+        "type": "Tidal Gauge",
+        "status": "Active",
+        "lastReading": "2025-09-12T16:30:00Z",
+        "waterLevel": 3.85,
+        "normalLevel": 2.2,
+        "alertThreshold": 3.5,
+        "criticalThreshold": 4.0,
+        "battery": 65,
+        "dataFrequency": "2 minutes",
+        "installation": "2022-09-15",
+        "maintenance": "2025-05-18",
+        "readings": {
+          "current": 3.85,
+          "1hour": 3.92,
+          "6hours": 3.78,
+          "24hours": 3.45
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [86.6100, 20.3167]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sensorId": "ODI-CYC-009", 
+        "name": "Bhubaneswar Cyclone Monitor",
+        "type": "Cyclone Sensor",
+        "status": "Active",
+        "lastReading": "2025-09-12T16:30:00Z",
+        "windSpeed": 45.7,
+        "windDirection": 135,
+        "pressure": 995.2,
+        "pressureTrend": "falling",
+        "temperature": 26.8,
+        "rainRate": 15.4,
+        "battery": 58,
+        "dataFrequency": "30 seconds",
+        "installation": "2022-12-05",
+        "maintenance": "2025-04-20"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.8245, 20.2961]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sensorId": "ODI-WV-010",
+        "name": "Puri Wave Height Monitor",
+        "type": "Wave Sensor",
+        "status": "Active",
+        "lastReading": "2025-09-12T16:30:00Z",
+        "waveHeight": 4.2,
+        "wavePeriod": 8.5,
+        "waveDirection": 145,
+        "significantWaveHeight": 4.5,
+        "maxWaveHeight": 6.8,
+        "battery": 71,
+        "dataFrequency": "10 minutes",
+        "installation": "2023-06-12",
+        "maintenance": "2025-09-05"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.8312, 19.8135]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sensorId": "AND-TG-011",
+        "name": "Visakhapatnam Port Tide Gauge",
+        "type": "Tidal Gauge", 
+        "status": "Active",
+        "lastReading": "2025-09-12T16:30:00Z",
+        "waterLevel": 2.15,
+        "normalLevel": 1.6,
+        "alertThreshold": 2.8,
+        "criticalThreshold": 3.3,
+        "battery": 83,
+        "dataFrequency": "5 minutes",
+        "installation": "2023-03-25",
+        "maintenance": "2025-08-10",
+        "readings": {
+          "current": 2.15,
+          "1hour": 2.08,
+          "6hours": 1.95,
+          "24hours": 1.72
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [83.2185, 17.6868]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sensorId": "AND-FL-012",
+        "name": "Krishna Delta Flood Sensor",
+        "type": "Flood Monitor",
+        "status": "Active",
+        "lastReading": "2025-09-12T16:30:00Z",
+        "waterLevel": 1.85,
+        "normalLevel": 1.2,
+        "alertThreshold": 2.5,
+        "criticalThreshold": 3.0,
+        "flowRate": 125.4,
+        "sedimentLevel": 45.2,
+        "battery": 77,
+        "dataFrequency": "15 minutes",
+        "installation": "2023-07-18",
+        "maintenance": "2025-06-22"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [80.6480, 16.5062]
+      }
+    }
+  ]
+}

@@ -1,5 +1,8 @@
 // CTAS Analytics Service with Sample Data
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';  
+// Analytics Service for CTAS
+// Handles data collection and analysis for threat assessment
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';  
   
 export const generateSeaLevelData = () => {
   const today = new Date();

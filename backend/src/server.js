@@ -21,10 +21,33 @@ connectDB();
 
 // Security Middleware
 app.use(helmet());
-app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true
-}));
+
+// CORS Configuration for Production and Development
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, etc.)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:5173',  // Local development
+      'http://localhost:3000',  // Alternative local port
+      'https://your-frontend.vercel.app', // Replace with your actual Vercel domain
+      process.env.CORS_ORIGIN   // Environment variable
+    ].filter(Boolean); // Remove undefined values
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
+app.use(cors(corsOptions));
 
 
 // Body Parsing Middleware
@@ -56,7 +79,8 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/weather', require('./routes/weather'));
 app.use('/api/satellite', require('./routes/satellite'));
 app.use('/api/users', require('./routes/users'));
-app.use('/api/noaa', require('./routes/simpleNoaaRoutes'));
+app.use('/api/noaa', require('./routes/noaaRoutes'));
+app.use('/api/enhanced-coastal', require('./routes/enhancedCoastal'));
 app.use('/api/community-reports', require('./routes/communityReports'));
 app.use('/api/threatReports', require('./routes/threatReports'));
 

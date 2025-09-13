@@ -4,10 +4,10 @@ import { useDispatch } from 'react-redux';
 import { 
   Activity, MapPin, Clock, AlertTriangle, RefreshCw, Wifi, WifiOff, 
   Info, ChevronDown, ChevronUp, Waves, Navigation, BookOpen, 
-  Compass, Thermometer, Wind, Anchor
+  Compass, Thermometer, Wind, Anchor, BarChart3
 } from 'lucide-react';
-import { useCurrentData, useConnectionStatus, useUI } from '../store/hooks';
-import { fetchCurrentsData, fetchThreatAssessment } from '../store/slices/noaaSlice';
+import { useCurrentData, useConnectionStatus, useUI, useNoaaData } from '../store/hooks';
+import { fetchCurrentsData, fetchThreatAssessment, clearStationData } from '../store/slices/noaaSlice';
 
 const EnhancedCurrentMonitor = ({ className = '' }) => {
   const dispatch = useDispatch();
@@ -18,11 +18,30 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
   const { isConnected, noaaConnection } = useConnectionStatus();
   const { dashboard } = useUI();
 
+  // Debug logging
+  console.log('EnhancedCurrentMonitor - Debug Info:', {
+    data,
+    isLoading,
+    error,
+    hasData,
+    latest,
+    station,
+    'data.observations': data?.observations,
+    'data.latest': data?.latest,
+    'data keys': Object.keys(data || {}),
+    'latest observation': latest,
+    'station_info': data?.station_info
+  });
+
+  // Also log the raw currentsData to see what's actually stored
+  const { currentsData } = useNoaaData();
+  console.log('Raw currentsData from Redux:', currentsData);
+
   // Auto-refresh based on user preferences
   useEffect(() => {
     if (dashboard.autoRefresh && dashboard.refreshInterval) {
       intervalRef.current = setInterval(() => {
-        dispatch(fetchCurrentsData({ stationId: 'cb0102' }));
+        dispatch(fetchCurrentsData('cb0201'));
       }, dashboard.refreshInterval);
     }
 
@@ -35,12 +54,19 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
 
   // Initial data fetch
   useEffect(() => {
-    dispatch(fetchCurrentsData({ stationId: 'cb0102' }));
-    dispatch(fetchThreatAssessment({ stationId: 'cb0102' }));
+    // Clear any old cached data first
+    dispatch(clearStationData());
+    // Then fetch new data
+    setTimeout(() => {
+      dispatch(fetchCurrentsData('cb0201'));
+      dispatch(fetchThreatAssessment('cb0201'));
+    }, 100);
   }, [dispatch]);
 
   const handleManualRefresh = () => {
-    dispatch(fetchCurrentsData({ stationId: 'cb0102' }));
+    console.log('Manual refresh triggered - fetching cb0201 data');
+    dispatch(fetchCurrentsData('cb0201'));
+    dispatch(fetchThreatAssessment('cb0201'));
   };
 
   const formatSpeed = (speed) => {
@@ -291,8 +317,15 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
           <BookOpen className="w-6 h-6 text-blue-400" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-white">Ocean & Coastal Currents</h2>
-          <p className="text-slate-400">Understanding water movement for coastal safety</p>
+          <h2 
+            className="text-2xl font-bold"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Ocean & Coastal Currents
+          </h2>
+          <p style={{ color: 'var(--text-secondary)' }}>
+            Understanding water movement for coastal safety
+          </p>
         </div>
       </div>
       
@@ -303,19 +336,36 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
           const isExpanded = expandedSection === section.id;
           
           return (
-            <div key={section.id} className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
+            <div 
+              key={section.id} 
+              className="rounded-xl overflow-hidden transition-all duration-300 hover:scale-[1.02]"
+              style={{
+                backgroundColor: 'var(--card-bg)',
+                borderWidth: '1px',
+                borderColor: 'var(--card-border)',
+                boxShadow: 'var(--card-shadow)',
+              }}
+            >
               <button
                 onClick={() => toggleSection(section.id)}
-                className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-700/30 transition-colors"
+                className="w-full px-6 py-4 flex items-center justify-between transition-all duration-300"
+                style={{
+                  backgroundColor: isExpanded ? 'var(--surface-secondary)' : 'transparent',
+                }}
               >
                 <div className="flex items-center space-x-3">
                   <Icon className="w-5 h-5 text-blue-400" />
-                  <h3 className="text-lg font-semibold text-white">{section.title}</h3>
+                  <h3 
+                    className="text-lg font-semibold"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    {section.title}
+                  </h3>
                 </div>
                 {isExpanded ? (
-                  <ChevronUp className="w-5 h-5 text-slate-400" />
+                  <ChevronUp className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-slate-400" />
+                  <ChevronDown className="w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
                 )}
               </button>
               
@@ -330,14 +380,38 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
       </div>
 
       {/* Live Current Data Section */}
-      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50">
-        <div className="px-6 py-4 border-b border-slate-700/50">
+      <div 
+        className="rounded-xl transition-all duration-300 hover:scale-[1.02]"
+        style={{
+          backgroundColor: 'var(--card-bg)',
+          borderWidth: '1px',
+          borderColor: 'var(--card-border)',
+          boxShadow: 'var(--card-shadow)',
+        }}
+      >
+        <div 
+          className="px-6 py-4"
+          style={{
+            borderBottomWidth: '1px',
+            borderColor: 'var(--border-color)',
+          }}
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Activity className="w-5 h-5 text-blue-400" />
               <div>
-                <h3 className="text-lg font-semibold text-white">Live Current Monitoring</h3>
-                <p className="text-sm text-slate-400">Cape Henry Station - Chesapeake Bay Mouth</p>
+                <h3 
+                  className="text-lg font-semibold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Live Current Monitoring
+                </h3>
+                <p 
+                  className="text-sm"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Chesapeake Bay Bridge Tunnel - Current Monitoring
+                </p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -370,7 +444,7 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
           {isLoading && !hasData && (
             <div className="text-center py-8">
               <RefreshCw className="w-8 h-8 text-blue-400 mx-auto mb-3 animate-spin" />
-              <p className="text-slate-400">Loading current data...</p>
+              <p style={{ color: 'var(--text-secondary)' }}>Loading current data...</p>
             </div>
           )}
 
@@ -381,17 +455,17 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="bg-slate-700/30 p-4 rounded-lg text-center">
                   <div className="text-2xl font-bold text-white mb-1">
-                    {formatSpeed(latest.speed)}
+                    {formatSpeed(latest.speed_knots)}
                   </div>
                   <div className="text-sm text-slate-400 mb-2">Current Speed</div>
-                  <div className={`text-xs px-2 py-1 rounded ${getCurrentStrengthCategory(latest.speed).bgColor} ${getCurrentStrengthCategory(latest.speed).color}`}>
-                    {getCurrentStrengthCategory(latest.speed).category}
+                  <div className={`text-xs px-2 py-1 rounded ${getCurrentStrengthCategory(latest.speed_knots).bgColor} ${getCurrentStrengthCategory(latest.speed_knots).color}`}>
+                    {getCurrentStrengthCategory(latest.speed_knots).category}
                   </div>
                 </div>
                 
                 <div className="bg-slate-700/30 p-4 rounded-lg text-center">
                   <div className="text-2xl font-bold text-white mb-1">
-                    {formatDirection(latest.direction)}
+                    {formatDirection(latest.direction_degrees)}
                   </div>
                   <div className="text-sm text-slate-400">Current Direction</div>
                 </div>
@@ -409,26 +483,142 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
                 </div>
               </div>
 
-              {/* Historical Statistics */}
-              {data.history && data.history.length > 0 && (
-                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-700/50">
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-white">
-                      {data.history.length}
-                    </div>
-                    <div className="text-xs text-slate-400">Records</div>
+              {/* Enhanced Historical Statistics */}
+              {data.observations && data.observations.length > 0 && (
+                <div className="mt-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-slate-200 flex items-center">
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      24-Hour Current Analysis
+                    </h4>
+                    <span className="text-xs text-slate-400">
+                      {data.observations.length} records
+                    </span>
                   </div>
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-white">
-                      {formatSpeed(Math.max(...data.history.map(r => r.speed || 0)))}
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-green-500/10 p-3 rounded-lg border border-green-500/20 text-center">
+                      <div className="text-lg font-bold text-green-400">
+                        {formatSpeed(Math.max(...data.observations.map(r => r.speed_knots || 0)))}
+                      </div>
+                      <div className="text-xs text-green-300 font-medium">Peak Speed</div>
+                      <div className="text-xs text-slate-400 mt-1">
+                        {(() => {
+                          const maxRecord = data.observations.find(r => r.speed_knots === Math.max(...data.observations.map(o => o.speed_knots || 0)));
+                          return maxRecord ? new Date(maxRecord.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A';
+                        })()}
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-400">Max Speed</div>
+                    
+                    <div className="bg-blue-500/10 p-3 rounded-lg border border-blue-500/20 text-center">
+                      <div className="text-lg font-bold text-blue-400">
+                        {formatSpeed(data.observations.reduce((sum, r) => sum + (r.speed_knots || 0), 0) / data.observations.length)}
+                      </div>
+                      <div className="text-xs text-blue-300 font-medium">Average</div>
+                      <div className="text-xs text-slate-400 mt-1">24-hour mean</div>
+                    </div>
+                    
+                    <div className="bg-orange-500/10 p-3 rounded-lg border border-orange-500/20 text-center">
+                      <div className="text-lg font-bold text-orange-400">
+                        {formatSpeed(Math.min(...data.observations.map(r => r.speed_knots || 0)))}
+                      </div>
+                      <div className="text-xs text-orange-300 font-medium">Minimum</div>
+                      <div className="text-xs text-slate-400 mt-1">
+                        {(() => {
+                          const minRecord = data.observations.find(r => r.speed_knots === Math.min(...data.observations.map(o => o.speed_knots || 0)));
+                          return minRecord ? new Date(minRecord.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A';
+                        })()}
+                      </div>
+                    </div>
+                    
+                    <div className="bg-purple-500/10 p-3 rounded-lg border border-purple-500/20 text-center">
+                      <div className="text-lg font-bold text-purple-400">
+                        {(() => {
+                          const strongCurrents = data.observations.filter(r => (r.speed_knots || 0) > 20);
+                          return Math.round((strongCurrents.length / data.observations.length) * 100);
+                        })()}%
+                      </div>
+                      <div className="text-xs text-purple-300 font-medium">Strong Currents</div>
+                      <div className="text-xs text-slate-400 mt-1">&gt;20 kts events</div>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-white">
-                      {formatSpeed(data.history.reduce((sum, r) => sum + (r.speed || 0), 0) / data.history.length)}
+
+                  {/* Current Strength Distribution */}
+                  <div className="bg-slate-700/30 p-4 rounded-lg">
+                    <h5 className="font-medium text-slate-200 mb-3">Current Strength Distribution (24 Hours)</h5>
+                    <div className="grid grid-cols-4 gap-2 text-xs">
+                      {(() => {
+                        const weak = data.observations.filter(r => (r.speed_knots || 0) < 10).length;
+                        const moderate = data.observations.filter(r => (r.speed_knots || 0) >= 10 && (r.speed_knots || 0) < 20).length;
+                        const strong = data.observations.filter(r => (r.speed_knots || 0) >= 20 && (r.speed_knots || 0) < 30).length;
+                        const veryStrong = data.observations.filter(r => (r.speed_knots || 0) >= 30).length;
+                        const total = data.observations.length;
+                        
+                        return (
+                          <>
+                            <div className="text-center">
+                              <div className="text-green-400 font-bold">{Math.round((weak/total)*100)}%</div>
+                              <div className="text-green-300">Weak</div>
+                              <div className="text-slate-400">&lt;10 kts</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-yellow-400 font-bold">{Math.round((moderate/total)*100)}%</div>
+                              <div className="text-yellow-300">Moderate</div>
+                              <div className="text-slate-400">10-20 kts</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-orange-400 font-bold">{Math.round((strong/total)*100)}%</div>
+                              <div className="text-orange-300">Strong</div>
+                              <div className="text-slate-400">20-30 kts</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-red-400 font-bold">{Math.round((veryStrong/total)*100)}%</div>
+                              <div className="text-red-300">Very Strong</div>
+                              <div className="text-slate-400">&gt;30 kts</div>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
-                    <div className="text-xs text-slate-400">Avg Speed</div>
+                  </div>
+
+                  {/* Recent Peaks */}
+                  <div className="bg-slate-700/30 p-4 rounded-lg">
+                    <h5 className="font-medium text-slate-200 mb-3">Notable Current Events (Last 24 Hours)</h5>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {(() => {
+                        const peakEvents = data.observations
+                          .filter(r => (r.speed_knots || 0) > 25)
+                          .sort((a, b) => (b.speed_knots || 0) - (a.speed_knots || 0))
+                          .slice(0, 6);
+                        
+                        return peakEvents.map((event, index) => (
+                          <div key={index} className="flex justify-between items-center text-sm">
+                            <span className="text-slate-300">
+                              {new Date(event.timestamp).toLocaleString([], {
+                                month: 'short', 
+                                day: 'numeric', 
+                                hour: '2-digit', 
+                                minute:'2-digit'
+                              })}
+                            </span>
+                            <div className="flex items-center space-x-2">
+                              <span className={`font-bold ${event.speed_knots > 35 ? 'text-red-400' : event.speed_knots > 30 ? 'text-orange-400' : 'text-yellow-400'}`}>
+                                {formatSpeed(event.speed_knots)}
+                              </span>
+                              <span className="text-slate-400">
+                                {formatDirection(event.direction_degrees)}
+                              </span>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                      {data.observations.filter(r => (r.speed_knots || 0) > 25).length === 0 && (
+                        <div className="text-slate-400 text-sm text-center py-2">
+                          No major current events (&gt;25 kts) in the last 24 hours
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

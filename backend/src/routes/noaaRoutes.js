@@ -11,13 +11,32 @@ router.get('/test', async (req, res) => {
     const testResult = await noaaService.testConnection();
     res.json({
       success: true,
-      message: 'NOAA API test completed',
+      message: 'NOAA API test completed - No token mode active',
       ...testResult
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: 'NOAA API test failed',
+      details: error.message
+    });
+  }
+});
+
+// Quick test - Get live current data from Cape Henry
+router.get('/test-currents', async (req, res) => {
+  try {
+    const currentData = await noaaService.getCurrentData('cb0102', 1); // Last 1 hour
+    res.json({
+      success: true,
+      message: 'Live currents data fetched successfully (no token)',
+      station: 'Cape Henry LB 2CH (cb0102)',
+      ...currentData
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch live currents data',
       details: error.message
     });
   }

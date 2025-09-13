@@ -1,0 +1,377 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature", 
+      "properties": {
+        "id": "shelter-mumbai-001",
+        "name": "Bandra Community Center",
+        "capacity": 500,
+        "type": "Community Center",
+        "address": "Hill Road, Bandra West, Mumbai, Maharashtra 400050",
+        "contact": "+91-22-2640-3456",
+        "email": "emergency@bandracc.org",
+        "facilities": ["Medical Aid", "Food Distribution", "Communications", "Generators", "Sanitation"],
+        "accessibility": "Wheelchair accessible",
+        "operatingStatus": "Active",
+        "lastInspected": "2025-09-01",
+        "currentOccupancy": 0,
+        "supplies": {
+          "water": "2000 liters",
+          "food": "500 meals ready",
+          "blankets": 200,
+          "medicalKit": "Fully stocked"
+        },
+        "coordinates": {
+          "lat": 19.0596,
+          "lng": 72.8401
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [72.8401, 19.0596]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "shelter-mumbai-002", 
+        "name": "Worli Emergency Shelter",
+        "capacity": 300,
+        "type": "Emergency Shelter",
+        "address": "Worli Sea Face, Mumbai, Maharashtra 400030",
+        "contact": "+91-22-2495-7890",
+        "email": "worli.emergency@mumbai.gov.in",
+        "facilities": ["Medical Aid", "Food", "Communications", "Backup Power"],
+        "accessibility": "Partial accessibility",
+        "operatingStatus": "Active",
+        "lastInspected": "2025-08-28",
+        "currentOccupancy": 0,
+        "supplies": {
+          "water": "1500 liters",
+          "food": "300 meals ready", 
+          "blankets": 150,
+          "medicalKit": "Basic supplies"
+        },
+        "coordinates": {
+          "lat": 19.0177,
+          "lng": 72.8159
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [72.8159, 19.0177]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "shelter-chennai-001",
+        "name": "Marina Beach Emergency Center",
+        "capacity": 800,
+        "type": "Emergency Center",
+        "address": "Marina Beach Road, Chennai, Tamil Nadu 600013",
+        "contact": "+91-44-2841-2345",
+        "email": "marina.emergency@chennai.gov.in",
+        "facilities": ["Medical Aid", "Food", "Rescue Equipment", "Communications", "Helipad"],
+        "accessibility": "Fully accessible",
+        "operatingStatus": "Active",
+        "lastInspected": "2025-09-05",
+        "currentOccupancy": 0,
+        "supplies": {
+          "water": "5000 liters",
+          "food": "800 meals ready",
+          "blankets": 400,
+          "medicalKit": "Fully equipped medical bay"
+        },
+        "coordinates": {
+          "lat": 13.0475,
+          "lng": 80.2785
+        }
+      },
+      "geometry": {
+        "type": "Point", 
+        "coordinates": [80.2785, 13.0475]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "shelter-chennai-002",
+        "name": "T. Nagar Relief Camp",
+        "capacity": 400,
+        "type": "Relief Camp",
+        "address": "T. Nagar, Chennai, Tamil Nadu 600017",
+        "contact": "+91-44-2434-5678",
+        "email": "tnagar.relief@chennai.gov.in",
+        "facilities": ["Food Distribution", "Temporary Housing", "Communications"],
+        "accessibility": "Basic accessibility",
+        "operatingStatus": "Standby",
+        "lastInspected": "2025-08-20",
+        "currentOccupancy": 0,
+        "supplies": {
+          "water": "2000 liters",
+          "food": "400 meals ready",
+          "blankets": 200,
+          "medicalKit": "Basic first aid"
+        },
+        "coordinates": {
+          "lat": 13.0435,
+          "lng": 80.2341
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [80.2341, 13.0435]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "shelter-kerala-001",
+        "name": "Kochi Relief Center",
+        "capacity": 600,
+        "type": "Relief Center",
+        "address": "Marine Drive, Kochi, Kerala 682031",
+        "contact": "+91-484-235-9876",
+        "email": "kochi.relief@kerala.gov.in",
+        "facilities": ["Medical Aid", "Food", "Boat Rescue", "Communications", "Generators"],
+        "accessibility": "Wheelchair accessible",
+        "operatingStatus": "Active",
+        "lastInspected": "2025-09-10",
+        "currentOccupancy": 0,
+        "supplies": {
+          "water": "3000 liters",
+          "food": "600 meals ready",
+          "blankets": 300,
+          "medicalKit": "Well equipped"
+        },
+        "coordinates": {
+          "lat": 9.9312,
+          "lng": 76.2673
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [76.2673, 9.9312]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "shelter-kerala-002",
+        "name": "Alleppey Community Hall",
+        "capacity": 350,
+        "type": "Community Hall",
+        "address": "Alleppey Beach Road, Alappuzha, Kerala 688012",
+        "contact": "+91-477-225-4321",
+        "email": "alleppey.emergency@kerala.gov.in",
+        "facilities": ["Food Distribution", "Temporary Shelter", "Basic Medical"],
+        "accessibility": "Basic accessibility",
+        "operatingStatus": "Standby",
+        "lastInspected": "2025-08-15",
+        "currentOccupancy": 0,
+        "supplies": {
+          "water": "1800 liters",
+          "food": "350 meals ready",
+          "blankets": 175,
+          "medicalKit": "Basic supplies"
+        },
+        "coordinates": {
+          "lat": 9.4981,
+          "lng": 76.3388
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [76.3388, 9.4981]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "shelter-goa-001",
+        "name": "Panaji Community Center",
+        "capacity": 250,
+        "type": "Community Center",
+        "address": "18th June Road, Panaji, Goa 403001",
+        "contact": "+91-832-242-8765",
+        "email": "panaji.emergency@goa.gov.in",
+        "facilities": ["Medical Aid", "Food", "Communications", "Tourist Support"],
+        "accessibility": "Fully accessible",
+        "operatingStatus": "Active",
+        "lastInspected": "2025-09-08",
+        "currentOccupancy": 0,
+        "supplies": {
+          "water": "1200 liters",
+          "food": "250 meals ready",
+          "blankets": 125,
+          "medicalKit": "Tourist medical kit"
+        },
+        "coordinates": {
+          "lat": 15.4909,
+          "lng": 73.8278
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [73.8278, 15.4909]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "shelter-goa-002",
+        "name": "Margao Relief Station", 
+        "capacity": 200,
+        "type": "Relief Station",
+        "address": "Station Road, Margao, Goa 403601",
+        "contact": "+91-832-271-5432",
+        "email": "margao.relief@goa.gov.in",
+        "facilities": ["Food Distribution", "Temporary Housing", "Basic Medical"],
+        "accessibility": "Basic accessibility",
+        "operatingStatus": "Standby",
+        "lastInspected": "2025-08-25",
+        "currentOccupancy": 0,
+        "supplies": {
+          "water": "1000 liters",
+          "food": "200 meals ready",
+          "blankets": 100,
+          "medicalKit": "Basic first aid"
+        },
+        "coordinates": {
+          "lat": 15.2707,
+          "lng": 73.9536
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [73.9536, 15.2707]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "shelter-odisha-001",
+        "name": "Bhubaneswar Emergency Complex",
+        "capacity": 1200,
+        "type": "Emergency Complex",
+        "address": "Airport Square, Bhubaneswar, Odisha 751009",
+        "contact": "+91-674-253-4567",
+        "email": "bbsr.emergency@odisha.gov.in",
+        "facilities": ["Medical Aid", "Food", "Communications", "Helicopter Landing", "Rescue Equipment"],
+        "accessibility": "Fully accessible",
+        "operatingStatus": "Active",
+        "lastInspected": "2025-09-12",
+        "currentOccupancy": 0,
+        "supplies": {
+          "water": "8000 liters",
+          "food": "1200 meals ready",
+          "blankets": 600,
+          "medicalKit": "Full hospital facilities"
+        },
+        "coordinates": {
+          "lat": 20.2961,
+          "lng": 85.8245
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.8245, 20.2961]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "shelter-odisha-002",
+        "name": "Puri Relief Center",
+        "capacity": 700,
+        "type": "Relief Center", 
+        "address": "Grand Road, Puri, Odisha 752001",
+        "contact": "+91-6752-222-345",
+        "email": "puri.relief@odisha.gov.in",
+        "facilities": ["Medical Aid", "Food", "Temple Coordination", "Pilgrim Support"],
+        "accessibility": "Partial accessibility",
+        "operatingStatus": "Active",
+        "lastInspected": "2025-09-08",
+        "currentOccupancy": 0,
+        "supplies": {
+          "water": "4000 liters",
+          "food": "700 meals ready",
+          "blankets": 350,
+          "medicalKit": "Medical center"
+        },
+        "coordinates": {
+          "lat": 19.8135,
+          "lng": 85.8312
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.8312, 19.8135]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "shelter-andhra-001",
+        "name": "Vijayawada Relief Center",
+        "capacity": 450,
+        "type": "Relief Center",
+        "address": "MG Road, Vijayawada, Andhra Pradesh 520010", 
+        "contact": "+91-866-257-8901",
+        "email": "vjw.relief@ap.gov.in",
+        "facilities": ["Medical Aid", "Food", "Communications", "River Rescue"],
+        "accessibility": "Wheelchair accessible",
+        "operatingStatus": "Active",
+        "lastInspected": "2025-09-06",
+        "currentOccupancy": 0,
+        "supplies": {
+          "water": "2500 liters",
+          "food": "450 meals ready",
+          "blankets": 225,
+          "medicalKit": "Well equipped"
+        },
+        "coordinates": {
+          "lat": 16.5062,
+          "lng": 80.6480
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [80.6480, 16.5062]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "shelter-andhra-002",
+        "name": "Guntur Emergency Shelter",
+        "capacity": 320,
+        "type": "Emergency Shelter",
+        "address": "Collectorate Road, Guntur, Andhra Pradesh 522003",
+        "contact": "+91-863-234-5678",
+        "email": "guntur.emergency@ap.gov.in",
+        "facilities": ["Food Distribution", "Temporary Housing", "Basic Medical", "Agricultural Support"],
+        "accessibility": "Basic accessibility",
+        "operatingStatus": "Standby",
+        "lastInspected": "2025-08-30",
+        "currentOccupancy": 0,
+        "supplies": {
+          "water": "1800 liters",
+          "food": "320 meals ready",
+          "blankets": 160,
+          "medicalKit": "Basic medical supplies"
+        },
+        "coordinates": {
+          "lat": 16.3067,
+          "lng": 80.4365
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [80.4365, 16.3067]
+      }
+    }
+  ]
+}

@@ -12,14 +12,32 @@ import DashboardProvider from './DashboardProvider';
 import EnhancedCurrentMonitor from './EnhancedCurrentMonitor';
 import WeatherWidget from './WeatherWidget';
 import SatelliteMapWorking from './SatelliteMapWorking';
+import MapboxSatelliteMap from './MapboxSatelliteMap';
+import EnhancedSatelliteMap from './EnhancedSatelliteMap';
+import MapboxCoastalMonitor from './MapboxCoastalMonitor';
+import FallbackMap from './FallbackMap';
+import MapErrorBoundary from './MapErrorBoundary';
 import CommunityReports from './CommunityReports';
 import ChatbotWidget from './ChatbotWidget';
 import AnalyticsPage from './AnalyticsPage';
+import CurrentMonitorService from '../services/currentMonitorService';
+import SettingsModal from './SettingsModal';
+import UserProfileDisplay from './UserProfileDisplay';
 
 const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
   const dispatch = useDispatch();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
+  const [mapProvider, setMapProvider] = useState('interactive'); // Default to interactive analysis
+  const [currentMonitor, setCurrentMonitor] = useState(null);
+  const [currentStats, setCurrentStats] = useState({
+    speed: 0,
+    direction: 0,
+    directionText: 'N/A',
+    station: 'Initializing...',
+    connected: false
+  });
+  const [userLocation, setUserLocation] = useState(null);
 
   const { user, isAuthenticated } = useAuth();
   const { isConnected, syncStatus } = useConnectionStatus();
@@ -28,6 +46,54 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
     sidebarCollapsed, 
     isLoading
   } = useDashboard();
+
+  // Initialize Current Monitor Service
+  useEffect(() => {
+    const initCurrentMonitor = async () => {
+      try {
+        // Get user location
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              const location = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+              };
+              setUserLocation(location);
+              
+              // Initialize Current Monitor Service
+              const monitor = new CurrentMonitorService();
+              await monitor.initialize(location);
+              
+              // Add listener for updates
+              monitor.addListener((event) => {
+                if (event.type === 'dataUpdate' || event.type === 'connectionStatus') {
+                  setCurrentStats(monitor.getLiveStats());
+                }
+              });
+              
+              setCurrentMonitor(monitor);
+              setCurrentStats(monitor.getLiveStats());
+            },
+            (error) => {
+              console.error('Geolocation error:', error);
+              setCurrentStats(prev => ({ ...prev, station: 'Location unavailable' }));
+            }
+          );
+        }
+      } catch (error) {
+        console.error('Error initializing Current Monitor:', error);
+      }
+    };
+
+    initCurrentMonitor();
+
+    return () => {
+      if (currentMonitor) {
+        currentMonitor.destroy();
+      }
+    };
+  }, []);
   
   // Set initial tab from props if provided
   useEffect(() => {
@@ -70,6 +136,46 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
     dispatch(openModal({ modalName: 'alertDetail' }));
   };
 
+  // Handle manual refresh of current data
+  const handleRefreshCurrents = async () => {
+    if (currentMonitor && userLocation) {
+      try {
+        await currentMonitor.getCurrentData(userLocation.lat, userLocation.lng);
+        setCurrentStats(currentMonitor.getLiveStats());
+      } catch (error) {
+        console.error('Error refreshing current data:', error);
+      }
+    }
+  };
+
+  // Handle location permission request
+  const handleRequestLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setUserLocation(location);
+          
+          if (currentMonitor) {
+            await currentMonitor.initialize(location);
+            setCurrentStats(currentMonitor.getLiveStats());
+          }
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          setCurrentStats(prev => ({ 
+            ...prev, 
+            station: 'Location permission denied',
+            connected: false 
+          }));
+        }
+      );
+    }
+  };
+
   const getTabIcon = (tabName) => {
     const icons = {
       overview: Activity,
@@ -89,16 +195,81 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Satellite Map - Large, Left Side */}
             <div className="lg:col-span-3">
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6 h-[800px]">
+              <div 
+                className="card-theme backdrop-blur-sm rounded-xl p-6 h-[800px] transition-all duration-300"
+                style={{
+                  backgroundColor: 'var(--card-bg)',
+                  borderColor: 'var(--card-border)',
+                  boxShadow: 'var(--card-shadow)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = 'var(--card-hover-shadow)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = 'var(--card-shadow)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-white flex items-center">
-                    <Satellite className="w-6 h-6 text-green-400 mr-2" />
+                  <h3 style={{ color: 'var(--text-primary)' }} className="text-lg font-bold flex items-center">
+                    <Satellite className="w-6 h-6 text-green-500 mr-2" />
                     Satellite Map
                   </h3>
-                  <div className="text-sm text-slate-400">India's Coastal Areas Monitoring</div>
+                  <div className="flex items-center space-x-4">
+                    {/* Map Provider Toggle */}
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setMapProvider('interactive')}
+                        className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                          mapProvider === 'interactive' 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                      >
+                        Interactive
+                      </button>
+                      <button
+                        onClick={() => setMapProvider('mapbox')}
+                        className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                          mapProvider === 'mapbox' 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                      >
+                        Mapbox
+                      </button>
+                      <button
+                        onClick={() => setMapProvider('coastal')}
+                        className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                          mapProvider === 'coastal' 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                      >
+                        Coastal Monitor
+                      </button>
+                    </div>
+                    <div className="text-sm text-slate-400">
+                      {mapProvider === 'interactive' ? 'Interactive Coastal Analysis Dashboard' : 
+                       mapProvider === 'coastal' ? 'Advanced Mapbox Coastal Monitoring' :
+                       mapProvider === 'mapbox' ? 'Mapbox Satellite View' :
+                       "Interactive Coastal Areas Monitoring"}
+                    </div>
+                  </div>
                 </div>
                 <div className="h-[720px]">
-                  <SatelliteMapWorking />
+                  <MapErrorBoundary>
+                    {mapProvider === 'interactive' ? (
+                      <FallbackMap />
+                    ) : mapProvider === 'coastal' ? (
+                      <MapboxCoastalMonitor userLocation={userLocation} />
+                    ) : mapProvider === 'mapbox' ? (
+                      <MapboxSatelliteMap />
+                    ) : (
+                      <FallbackMap />
+                    )}
+                  </MapErrorBoundary>
                 </div>
               </div>
             </div>
@@ -106,65 +277,138 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
             {/* Quick Stats and Other Components - Right Side */}
             <div className="lg:col-span-1 space-y-6">
               {/* Quick Stats */}
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                  <Activity className="w-5 h-5 text-cyan-400 mr-2" />
+              <div 
+                className="card-theme backdrop-blur-sm rounded-xl p-6 transition-all duration-300"
+                style={{
+                  backgroundColor: 'var(--card-bg)',
+                  borderColor: 'var(--card-border)',
+                  boxShadow: 'var(--card-shadow)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = 'var(--card-hover-shadow)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = 'var(--card-shadow)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <h3 style={{ color: 'var(--text-primary)' }} className="text-lg font-bold mb-4 flex items-center">
+                  <Activity className="w-5 h-5 text-cyan-500 mr-2" />
                   Quick Stats
                 </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-400 flex items-center">
-                      <div className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
-                      Connection
+                    <span style={{ color: 'var(--text-muted)' }} className="flex items-center font-medium">
+                      <div className={`w-2 h-2 rounded-full mr-2 ${currentStats.connected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
+                      Ocean Data
                     </span>
-                    <span className={`font-semibold ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
-                      {isConnected ? 'Connected' : 'Disconnected'}
+                    <span className={`font-semibold ${currentStats.connected ? 'text-green-400' : 'text-red-400'}`}>
+                      {currentStats.connected ? 'Live' : 'Offline'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Sync Status</span>
-                    <span className={`font-semibold capitalize ${
-                      syncStatus === 'synced' ? 'text-green-400' : 
-                      syncStatus === 'syncing' ? 'text-yellow-400' : 
-                      'text-red-400'
-                    }`}>
-                      {syncStatus}
+                    <span className="text-slate-400">Current Speed</span>
+                    <span className="font-semibold text-blue-400">
+                      {currentStats.speed.toFixed(1)} kts
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">Direction</span>
+                    <span className="font-semibold text-cyan-400">
+                      {currentStats.directionText} ({currentStats.direction}°)
                     </span>
                   </div>
                   <div className="border-t border-slate-600 pt-4 mt-4">
-                    <div className="text-slate-400 text-xs mb-2">Layer: Satellite View</div>
-                    <div className="text-slate-400 text-xs mb-2">Markers: 0</div>
-                    <div className="text-slate-400 text-xs mb-2">Center: 19.0760, 72.8777</div>
-                    <div className="text-slate-400 text-xs">Last Updated: 2:05:09 PM</div>
+                    <div className="text-slate-400 text-xs mb-2">
+                      Station: {currentStats.station}
+                    </div>
+                    {userLocation && (
+                      <>
+                        <div className="text-slate-400 text-xs mb-2">
+                          Location: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+                        </div>
+                        {currentStats.distance && (
+                          <div className="text-slate-400 text-xs mb-2">
+                            Distance: {currentStats.distance}km
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <div className="text-slate-400 text-xs">
+                      Updated: {currentStats.lastUpdate ? new Date(currentStats.lastUpdate).toLocaleTimeString() : 'Never'}
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Current Monitor - Compact */}
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4">
-                <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
-                  <Waves className="w-5 h-5 text-blue-400 mr-2" />
-                  Current Monitor
-                </h3>
+              <div 
+                className="backdrop-blur-sm rounded-xl border p-4"
+                style={{
+                  backgroundColor: 'var(--card-bg)',
+                  borderColor: 'var(--card-border)',
+                }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 style={{ color: 'var(--text-primary)' }} className="text-lg font-semibold flex items-center">
+                    <Waves className="w-5 h-5 text-blue-400 mr-2" />
+                    Current Monitor
+                  </h3>
+                  <button
+                    onClick={handleRefreshCurrents}
+                    className="p-1 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+                    title="Refresh current data"
+                  >
+                    <RefreshCw className="w-4 h-4 text-slate-400 hover:text-white" />
+                  </button>
+                </div>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-400">Cape Henry Station</span>
-                    <span className={`${isConnected ? 'text-green-400' : 'text-red-400'}`}>
-                      {isConnected ? 'connected' : 'disconnected'}
+                    <span className="text-slate-400">{currentStats.station}</span>
+                    <span className={`${currentStats.connected ? 'text-green-400' : 'text-red-400'}`}>
+                      {currentStats.connected ? 'connected' : 'disconnected'}
                     </span>
                   </div>
-                  {!isConnected ? (
+                  {!currentStats.connected ? (
                     <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3">
-                      <div className="flex items-center text-red-400 text-sm">
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        {syncStatus === 'offline' ? 'No internet connection' : 'Server unavailable'}
+                      <div className="flex items-center justify-between text-red-400 text-sm">
+                        <div className="flex items-center">
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          {currentStats.station === 'Location unavailable' ? 'Location access needed' : 'Connecting to ocean data...'}
+                        </div>
+                        {currentStats.station === 'Location unavailable' && (
+                          <button
+                            onClick={handleRequestLocation}
+                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                          >
+                            Allow Location
+                          </button>
+                        )}
                       </div>
                     </div>
                   ) : (
                     <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-3">
-                      <div className="flex items-center text-green-400 text-sm">
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Connected and monitoring
+                      <div className="space-y-2">
+                        <div className="flex items-center text-green-400 text-sm">
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Connected and monitoring
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <span className="text-slate-400">Speed:</span>
+                            <span className="text-white ml-1">{currentStats.speed.toFixed(1)} kts</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Direction:</span>
+                            <span className="text-white ml-1">{currentStats.directionText}</span>
+                          </div>
+                        </div>
+                        {currentStats.distance && (
+                          <div className="text-xs text-slate-400">
+                            Station: {currentStats.distance}km away
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -187,18 +431,27 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
         return <WeatherWidget />;
       
       case 'satellite':
-        // Use SatelliteMapWorking showing Indian coastal areas
+        // Use Enhanced Satellite Map with animations and heatmaps
         return (
-          <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center">
-                <Satellite className="w-6 h-6 text-green-400 mr-2" />
-                India's Coastal Monitoring
+          <div 
+            className="backdrop-blur-sm rounded-xl border p-6 transition-all duration-300"
+            style={{
+              backgroundColor: 'var(--card-bg)',
+              borderColor: 'var(--card-border)',
+              boxShadow: 'var(--card-shadow)'
+            }}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 style={{ color: 'var(--text-primary)' }} className="text-lg font-bold flex items-center">
+                <Satellite className="w-6 h-6 text-green-500 mr-2" />
+                🇮🇳 Indian Coastal Monitoring - Gujarat & Mumbai
               </h3>
-              <div className="text-sm text-slate-400">Real-time satellite view</div>
+              <div style={{ color: 'var(--text-muted)' }} className="text-sm font-medium">
+                Arabian Sea real-time satellite with animated heatmaps
+              </div>
             </div>
-            <div className="h-[720px]">
-              <SatelliteMapWorking />
+            <div className="h-[720px] rounded-lg overflow-hidden">
+              <EnhancedSatelliteMap />
             </div>
           </div>
         );
@@ -211,9 +464,25 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
         
       default:
         return (
-          <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Overview</h3>
-            <p className="text-slate-400">Select a tab to view data</p>
+          <div 
+            className="p-6 rounded-xl transition-all duration-300 hover:scale-[1.02]"
+            style={{
+              backgroundColor: 'var(--card-bg)',
+              backdropFilter: 'blur(12px)',
+              borderWidth: '1px',
+              borderColor: 'var(--card-border)',
+              boxShadow: 'var(--card-shadow)',
+            }}
+          >
+            <h3 
+              className="text-lg font-semibold mb-4"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Overview
+            </h3>
+            <p style={{ color: 'var(--text-secondary)' }}>
+              Select a tab to view detailed data and analytics
+            </p>
           </div>
         );
     }
@@ -234,14 +503,31 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
 
   return (
     <DashboardProvider>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 relative">
+      <div 
+        className="min-h-screen relative gradient-overlay"
+        style={{
+          background: 'linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%)'
+        }}
+      >
         {/* Sidebar */}
         <div className={`fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out ${sidebarCollapsed && !isMobileView ? 'w-20' : 'w-72'} ${isMobileView && sidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}`}>
           {/* Sidebar Content */}
-          <div className="h-full bg-slate-800/50 backdrop-blur-sm border-r border-slate-700/50 flex flex-col overflow-hidden">
+          <div 
+            className="h-full backdrop-blur-sm flex flex-col overflow-hidden sidebar-theme"
+            style={{
+              backgroundColor: 'var(--sidebar-bg)',
+              borderColor: 'var(--border-color)',
+              boxShadow: 'var(--sidebar-shadow)',
+            }}
+          >
             {/* Sidebar Header */}
             {!isMobileView && (
-              <div className="p-4 border-b border-slate-700/50">
+              <div 
+                className="p-4 border-b"
+                style={{
+                  borderColor: 'var(--border-color)',
+                }}
+              >
                 <div className="flex items-center justify-between">
                   <div className={`flex items-center ${sidebarCollapsed ? 'justify-center w-full' : ''}`}>
                     <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
@@ -249,16 +535,25 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                     </div>
                     {!sidebarCollapsed && (
                       <div className="ml-3">
-                        <h2 className="text-white font-bold text-lg">CTAS</h2>
-                        <p className="text-slate-400 text-xs">Coastal Monitoring</p>
+                        <h2 style={{ color: 'var(--text-primary)' }} className="font-bold text-lg">CTAS</h2>
+                        <p style={{ color: 'var(--text-muted)' }} className="text-xs">Coastal Monitoring</p>
                       </div>
                     )}
                   </div>
                   <button
                     onClick={handleSidebarToggle}
-                    className="p-1 hover:bg-slate-700/50 rounded"
+                    className="p-1 rounded transition-colors"
+                    style={{
+                      color: 'var(--text-muted)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = 'var(--sidebar-hover)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                    }}
                   >
-                    <ChevronDown className={`w-6 h-6 text-slate-400 transform transition-transform ${sidebarCollapsed ? 'rotate-90' : '-rotate-90'}`} />
+                    <ChevronDown className={`w-6 h-6 transform transition-transform ${sidebarCollapsed ? 'rotate-90' : '-rotate-90'}`} />
                   </button>
                 </div>
               </div>
@@ -279,11 +574,23 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                   <button
                     key={tab.id}
                     onClick={() => handleTabChange(tab.id)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                      activeTab === tab.id
-                        ? 'bg-blue-500/20 text-blue-400'
-                        : 'text-slate-300 hover:bg-slate-700/50'
-                    } ${sidebarCollapsed && !isMobileView ? 'justify-center' : ''}`}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${sidebarCollapsed && !isMobileView ? 'justify-center' : ''}`}
+                    style={{
+                      backgroundColor: activeTab === tab.id ? 'var(--sidebar-active)' : 'transparent',
+                      color: activeTab === tab.id ? '#ffffff' : 'var(--sidebar-text)'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (activeTab !== tab.id) {
+                        e.target.style.backgroundColor = 'var(--sidebar-hover)';
+                        e.target.style.color = 'var(--text-primary)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (activeTab !== tab.id) {
+                        e.target.style.backgroundColor = 'transparent';
+                        e.target.style.color = 'var(--sidebar-text)';
+                      }
+                    }}
                   >
                     <Icon className="w-7 h-7" />
                     {(!sidebarCollapsed || isMobileView) && (
@@ -296,43 +603,81 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
 
             {/* Desktop User Menu */}
             {!isMobileView && (
-              <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-700/50">
+              <div 
+                className="absolute bottom-0 left-0 right-0 p-4 border-t"
+                style={{
+                  borderColor: 'var(--border-color)',
+                }}
+              >
                 <div className="relative user-menu-container">
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
-                    className={`w-full flex items-center gap-3 p-3 text-slate-300 hover:bg-slate-700/50 rounded-lg ${sidebarCollapsed ? 'justify-center' : ''}`}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${sidebarCollapsed ? 'justify-center' : ''}`}
+                    style={{
+                      color: 'var(--sidebar-text)',
+                      backgroundColor: 'transparent'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = 'var(--sidebar-hover)';
+                      e.target.style.color = 'var(--text-primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                      e.target.style.color = 'var(--sidebar-text)';
+                    }}
                   >
-                    <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full text-white font-semibold text-xs">
-                      {user && isAuthenticated ? getUserInitials(user?.name) : 'G'}
-                    </div>
+                    <UserProfileDisplay variant={sidebarCollapsed ? 'avatar-only' : 'compact'} />
                     {!sidebarCollapsed && (
-                      <>
-                        <span className="flex-1 text-left">{user?.name || 'Guest User'}</span>
-                        <ChevronDown className="w-5 h-5" />
-                      </>
+                      <ChevronDown className="w-5 h-5 ml-auto" />
                     )}
                   </button>
                   
                   {showUserMenu && (
-                    <div className={`absolute ${sidebarCollapsed ? 'left-full ml-2' : 'left-0'} bottom-full mb-2 w-48 bg-slate-800 rounded-lg border border-slate-700 shadow-xl z-50`}>
-                      <div className="p-3 border-b border-slate-700">
-                        <p className="text-white font-medium">{user?.name || 'User'}</p>
-                        <p className="text-slate-400 text-sm">{user?.email || 'user@example.com'}</p>
+                    <div 
+                      className={`absolute ${sidebarCollapsed ? 'left-full ml-2' : 'left-0'} bottom-full mb-2 w-64 rounded-xl border z-50 overflow-hidden backdrop-blur-md transition-all duration-300`}
+                      style={{
+                        backgroundColor: 'var(--surface-elevated)',
+                        borderColor: 'var(--card-border)',
+                        boxShadow: 'var(--card-hover-shadow)',
+                      }}
+                    >
+                      <div 
+                        className="p-4 border-b"
+                        style={{
+                          borderColor: 'var(--border-color)',
+                          background: 'linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary))'
+                        }}
+                      >
+                        <UserProfileDisplay variant="full" />
                       </div>
-                      <div className="p-2">
+                      <div className="p-2 space-y-1">
                         <button
                           onClick={handleOpenSettings}
-                          className="w-full flex items-center gap-2 p-2 text-slate-300 hover:bg-slate-700/50 hover:text-white rounded transition-colors duration-200"
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group hover:scale-[1.02] font-medium"
+                          style={{
+                            color: 'var(--text-secondary)',
+                            backgroundColor: 'transparent'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = 'var(--bg-tertiary)';
+                            e.target.style.color = 'var(--text-primary)';
+                            e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'transparent';
+                            e.target.style.color = 'var(--text-secondary)';
+                            e.target.style.boxShadow = 'none';
+                          }}
                         >
-                          <Settings className="w-5 h-5" />
-                          Settings
+                          <Settings className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                          <span>Settings</span>
                         </button>
                         <button
                           onClick={handleLogout}
-                          className="w-full flex items-center gap-2 p-2 text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded transition-all duration-200 mt-1 group"
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all duration-200 group hover:scale-[1.02] font-medium"
                         >
                           <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
-                          <span className="font-medium">Logout</span>
+                          <span>Logout</span>
                         </button>
                       </div>
                     </div>
@@ -349,30 +694,50 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                     onClick={() => setShowUserMenu(!showUserMenu)}
                     className="w-full flex items-center gap-3 p-3 text-slate-300 hover:bg-slate-700/50 rounded-lg"
                   >
-                    <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full text-white font-semibold text-xs">
-                      {user && isAuthenticated ? getUserInitials(user?.name) : 'G'}
-                    </div>
-                    <span className="flex-1 text-left">{user?.name || 'Guest User'}</span>
-                    <ChevronDown className="w-5 h-5" />
+                    <UserProfileDisplay variant="compact" />
+                    <ChevronDown className="w-5 h-5 ml-auto" />
                   </button>
                   
                   {showUserMenu && (
-                    <div className="absolute left-0 bottom-full mb-2 w-48 bg-slate-800 rounded-lg border border-slate-700 shadow-xl z-50">
-                      <div className="p-3 border-b border-slate-700">
-                        <p className="text-white font-medium">{user?.name || 'User'}</p>
-                        <p className="text-slate-400 text-sm">{user?.email || 'user@example.com'}</p>
+                    <div 
+                      className="absolute left-0 bottom-full mb-2 w-64 rounded-xl border shadow-2xl z-50 overflow-hidden backdrop-blur-sm"
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        borderColor: 'var(--border-color)',
+                      }}
+                    >
+                      <div 
+                        className="p-4 border-b"
+                        style={{
+                          borderColor: 'var(--border-color)',
+                          background: 'linear-gradient(to right, var(--bg-tertiary), var(--bg-secondary))'
+                        }}
+                      >
+                        <UserProfileDisplay variant="full" />
                       </div>
-                      <div className="p-2">
+                      <div className="p-2 space-y-1">
                         <button
                           onClick={handleOpenSettings}
-                          className="w-full flex items-center gap-2 p-2 text-slate-300 hover:bg-slate-700/50 hover:text-white rounded transition-colors duration-200"
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group hover:scale-[1.02]"
+                          style={{
+                            color: 'var(--text-secondary)',
+                            backgroundColor: 'transparent'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = 'var(--bg-tertiary)';
+                            e.target.style.color = 'var(--text-primary)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'transparent';
+                            e.target.style.color = 'var(--text-secondary)';
+                          }}
                         >
-                          <Settings className="w-5 h-5" />
-                          Settings
+                          <Settings className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                          <span className="font-medium">Settings</span>
                         </button>
                         <button
                           onClick={handleLogout}
-                          className="w-full flex items-center gap-2 p-2 text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded transition-all duration-200 mt-1 group"
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded-lg transition-all duration-200 group hover:scale-[1.02]"
                         >
                           <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
                           <span className="font-medium">Logout</span>
@@ -391,19 +756,34 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
           <div className="min-h-screen flex flex-col relative">
             {/* Mobile Header */}
             {isMobileView && (
-              <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50 p-4 flex items-center justify-between sticky top-0 z-30">
+              <header 
+                className="backdrop-blur-sm border-b p-4 flex items-center justify-between sticky top-0 z-30"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  borderColor: 'var(--border-color)',
+                }}
+              >
                 <div className="flex items-center">
                   <button
                     onClick={handleSidebarToggle}
-                    className="p-2 mr-3 hover:bg-slate-700/50 rounded-lg"
+                    className="p-2 mr-3 rounded-lg transition-colors"
+                    style={{
+                      color: 'var(--text-primary)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = 'var(--bg-tertiary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                    }}
                   >
-                    {sidebarCollapsed ? <Menu className="w-6 h-6 text-white" /> : <X className="w-6 h-6 text-white" />}
+                    {sidebarCollapsed ? <Menu className="w-6 h-6" /> : <X className="w-6 h-6" />}
                   </button>
                   <div className="flex items-center">
                     <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
                       <span className="text-white font-bold text-lg"></span>
                     </div>
-                    <h2 className="text-white font-bold text-lg ml-2">CTAS</h2>
+                    <h2 style={{ color: 'var(--text-primary)' }} className="font-bold text-lg ml-2">CTAS</h2>
                   </div>
                 </div>
               </header>
@@ -433,11 +813,13 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
           />
         )}
 
+        
         {/* Floating Chatbot Widget */}
         <ChatbotWidget />
       </div>
+      
+      {/* Settings Modal */}
+      <SettingsModal />
     </DashboardProvider>
   );
-};
-
-export default InteractiveDashboard;
+};export default InteractiveDashboard;

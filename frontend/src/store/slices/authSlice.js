@@ -1,7 +1,26 @@
 // Authentication slice for user management
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
+// Helper function to generate name from email
+const generateNameFromEmail = (email) => {
+  if (!email) return 'User';
+  
+  // Extract the part before @ symbol
+  const localPart = email.split('@')[0];
+  
+  // Split by common separators (dots, underscores, numbers)
+  let nameParts = localPart.split(/[._\d]+/).filter(part => part.length > 0);
+  
+  // Capitalize each part
+  nameParts = nameParts.map(part => 
+    part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+  );
+  
+  // Join with space, default to "User" if no valid parts
+  return nameParts.length > 0 ? nameParts.join(' ') : 'User';
+};
 
 // Async thunks for API calls
 export const loginUser = createAsyncThunk(
@@ -22,6 +41,11 @@ export const loginUser = createAsyncThunk(
       }
       
       const data = await response.json();
+      
+      // If the backend doesn't provide a name, generate it from email
+      if (!data.user.name || data.user.name === 'User' || data.user.name === '') {
+        data.user.name = generateNameFromEmail(data.user.email);
+      }
       
       // Store in localStorage
       localStorage.setItem('ctas_user', JSON.stringify(data.user));
@@ -127,6 +151,10 @@ const authSlice = createSlice({
       if (storedUser && storedToken) {
         try {
           const parsedUser = JSON.parse(storedUser);
+          // If user doesn't have a proper name, generate it from email
+          if (!parsedUser.name || parsedUser.name === 'User' || parsedUser.name === 'Guest User') {
+            parsedUser.name = generateNameFromEmail(parsedUser.email);
+          }
           state.user = parsedUser;
           state.token = storedToken;
           state.isAuthenticated = true;
@@ -137,8 +165,86 @@ const authSlice = createSlice({
           localStorage.removeItem('ctas_token');
         }
       } else {
-        console.log('🔐 No stored auth data found');
+        console.log('🔐 No stored auth data found - user needs to login');
+        // Don't set demo user automatically - let user login first
       }
+    },
+
+    // Set demo user (for development/demo purposes)
+    setDemoUser: (state) => {
+      const demoEmail = 'john.doe@coastal-alert.com';
+      const generatedName = generateNameFromEmail(demoEmail);
+      
+      const demoUser = {
+        id: 'demo-user-001',
+        name: generatedName, // Generated from email
+        email: demoEmail,
+        role: 'analyst',
+        department: 'Coastal Monitoring',
+        location: 'Mumbai, Maharashtra',
+        avatar: null,
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+        preferences: {
+          theme: 'dark',
+          notifications: true,
+          units: 'metric'
+        }
+      };
+      state.user = demoUser;
+      state.isAuthenticated = true;
+    },
+
+    // Update user profile information
+    updateUserProfile: (state, action) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+        
+        // Update localStorage with new user data
+        localStorage.setItem('ctas_user', JSON.stringify(state.user));
+      }
+    },
+
+    // Generate name from email
+    generateNameFromEmail: (email) => {
+      if (!email) return 'User';
+      
+      // Extract the part before @
+      const username = email.split('@')[0];
+      
+      // Split by common separators and capitalize each part
+      const nameParts = username
+        .split(/[._-]/)
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .filter(part => part.length > 0);
+      
+      return nameParts.join(' ') || 'User';
+    },
+
+    // Set user from login with name generation
+    setUserFromLogin: (state, action) => {
+      const { email, ...userData } = action.payload;
+      
+      // Generate name from email if no name provided
+      const generatedName = generateNameFromEmail(email);
+      
+      const user = {
+        ...userData,
+        email,
+        name: userData.name || generatedName,
+        id: userData.id || `user-${Date.now()}`,
+        role: userData.role || 'user',
+        createdAt: userData.createdAt || new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+      };
+      
+      state.user = user;
+      state.isAuthenticated = true;
+      
+      // Store in localStorage
+      localStorage.setItem('ctas_user', JSON.stringify(user));
+      
+      console.log('🔐 User set from login:', { user, generatedName });
     },
   },
   extraReducers: (builder) => {
@@ -195,5 +301,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, setCredentials, clearCredentials, initializeAuth } = authSlice.actions;
+export const { clearError, setCredentials, clearCredentials, initializeAuth, setDemoUser, updateUserProfile, setUserFromLogin } = authSlice.actions;
+export { generateNameFromEmail }; // Export the helper function
 export default authSlice.reducer;

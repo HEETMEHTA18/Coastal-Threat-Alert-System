@@ -1,6 +1,9 @@
 // Alerts slice for threat notifications and user alerts
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
+// Get API base URL from environment variables
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
 // Initial state
 const initialState = {
   alerts: [],
@@ -18,7 +21,7 @@ export const fetchAlerts = createAsyncThunk(
         return rejectWithValue('No authentication token');
       }
 
-      const response = await fetch('http://localhost:5000/api/alerts', {
+      const response = await fetch(`${API_BASE_URL}/alerts`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -45,7 +48,7 @@ export const createAlert = createAsyncThunk(
         return rejectWithValue('No authentication token');
       }
 
-      const response = await fetch('http://localhost:5000/api/alerts', {
+      const response = await fetch(`${API_BASE_URL}/alerts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,18 +1,21 @@
-// NOAA data slice for ocean and weather data
+﻿// NOAA data slice for real-time ocean and weather data
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+
+// Get API base URL from environment variables
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 // Initial state
 const initialState = {
   capeHenryData: null,
   currentData: null,
+  currentsData: {},
   threatAssessment: null,
-  connectionStatus: 'unknown', // 'connected', 'disconnected', 'unknown'
+  serviceStatus: null,
   isLoading: false,
   error: null,
-  errors: {},
-  dataFreshness: {
-    capeHenry: 'fresh', // 'fresh', 'stale', 'outdated'
-    currents: 'fresh',
+  lastUpdated: {
+    capeHenry: 'fresh',
+    current: 'fresh',
     threats: 'fresh'
   },
   capeHenryLastUpdated: null,
@@ -20,12 +23,12 @@ const initialState = {
   threatLastUpdated: null
 };
 
-// Async thunks for API calls
-export const fetchCapeHenryData = createAsyncThunk(
-  'noaa/fetchCapeHenry',
+// Async thunk for fetching Cape Henry analysis
+export const fetchCapeHenryAnalysis = createAsyncThunk(
+  'noaa/fetchCapeHenryAnalysis',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await fetch('http://localhost:5000/api/noaa/cape-henry');
+      const response = await fetch(`${API_BASE_URL}/noaa/cape-henry`);
       
       if (!response.ok) {
         return rejectWithValue('Failed to fetch Cape Henry data');
@@ -40,10 +43,10 @@ export const fetchCapeHenryData = createAsyncThunk(
 );
 
 export const fetchCurrentData = createAsyncThunk(
-  'noaa/fetchCurrent',
+  'noaa/fetchCurrentData',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await fetch('http://localhost:5000/api/noaa/current');
+      const response = await fetch(`${API_BASE_URL}/noaa/current`);
       
       if (!response.ok) {
         return rejectWithValue('Failed to fetch current data');
@@ -59,16 +62,16 @@ export const fetchCurrentData = createAsyncThunk(
 
 export const fetchCurrentsData = createAsyncThunk(
   'noaa/fetchCurrentsData',
-  async ({ stationId }, { rejectWithValue }) => {
+  async (stationId = 'cb0201', { rejectWithValue }) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/noaa/currents/${stationId}`);
+      const response = await fetch(`${API_BASE_URL}/noaa/currents/${stationId}`);
       
       if (!response.ok) {
-        return rejectWithValue(`Failed to fetch currents data for station ${stationId}`);
+        return rejectWithValue('Failed to fetch currents data');
       }
       
       const data = await response.json();
-      return { data, stationId };
+      return { stationId, data };
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -77,12 +80,30 @@ export const fetchCurrentsData = createAsyncThunk(
 
 export const fetchThreatAssessment = createAsyncThunk(
   'noaa/fetchThreatAssessment',
-  async ({ stationId }, { rejectWithValue }) => {
+  async (stationId = 'cb0201', { rejectWithValue }) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/threats/assessment/${stationId}`);
+      const response = await fetch(`${API_BASE_URL}/noaa/threats/${stationId}`);
       
       if (!response.ok) {
-        return rejectWithValue(`Failed to fetch threat assessment for station ${stationId}`);
+        return rejectWithValue('Failed to fetch threat assessment');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const fetchServiceStatus = createAsyncThunk(
+  'noaa/fetchServiceStatus',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/noaa/status`);
+      
+      if (!response.ok) {
+        return rejectWithValue('Failed to fetch service status');
       }
       
       const data = await response.json();
@@ -97,10 +118,10 @@ export const testNoaaConnection = createAsyncThunk(
   'noaa/testConnection',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await fetch('http://localhost:5000/api/noaa/status');
+      const response = await fetch(`${API_BASE_URL}/noaa/test`);
       
       if (!response.ok) {
-        return rejectWithValue('NOAA API connection failed');
+        return rejectWithValue('Failed to test NOAA connection');
       }
       
       const data = await response.json();
@@ -111,92 +132,38 @@ export const testNoaaConnection = createAsyncThunk(
   }
 );
 
-// Slice
+// NOAA slice
 const noaaSlice = createSlice({
   name: 'noaa',
   initialState,
   reducers: {
-    // Simple reducers for direct state updates
-    setCapeHenryData: (state, action) => {
-      state.capeHenryData = action.payload;
-      state.capeHenryLastUpdated = new Date().toISOString();
+    clearError: (state) => {
+      state.error = null;
     },
-    setCurrentData: (state, action) => {
-      state.currentData = action.payload;
-      state.currentLastUpdated = new Date().toISOString();
-    },
-    setLoading: (state, action) => {
-      state.isLoading = action.payload;
-    },
-    setError: (state, action) => {
-      state.error = action.payload;
-    },
-    setConnectionStatus: (state, action) => {
-      state.connectionStatus = action.payload;
-    },
-    updateDataFreshness: (state) => {
-      // Calculate data freshness based on last updated timestamps
-      const now = new Date();
-      
-      if (state.capeHenryLastUpdated) {
-        const capeHenryTime = new Date(state.capeHenryLastUpdated);
-        const diffMinutes = (now - capeHenryTime) / (1000 * 60);
-        
-        if (diffMinutes < 30) {
-          state.dataFreshness.capeHenry = 'fresh';
-        } else if (diffMinutes < 60) {
-          state.dataFreshness.capeHenry = 'stale';
-        } else {
-          state.dataFreshness.capeHenry = 'outdated';
-        }
-      }
-      
-      if (state.currentLastUpdated) {
-        const currentTime = new Date(state.currentLastUpdated);
-        const diffMinutes = (now - currentTime) / (1000 * 60);
-        
-        if (diffMinutes < 30) {
-          state.dataFreshness.currents = 'fresh';
-        } else if (diffMinutes < 60) {
-          state.dataFreshness.currents = 'stale';
-        } else {
-          state.dataFreshness.currents = 'outdated';
-        }
-      }
-      
-      if (state.threatLastUpdated) {
-        const threatTime = new Date(state.threatLastUpdated);
-        const diffMinutes = (now - threatTime) / (1000 * 60);
-        
-        if (diffMinutes < 30) {
-          state.dataFreshness.threats = 'fresh';
-        } else if (diffMinutes < 60) {
-          state.dataFreshness.threats = 'stale';
-        } else {
-          state.dataFreshness.threats = 'outdated';
-        }
-      }
-    },
+    clearStationData: (state) => {
+      state.currentsData = {};
+      state.currentData = null;
+      state.threatAssessment = null;
+    }
   },
   extraReducers: (builder) => {
     builder
-      // Cape Henry data
-      .addCase(fetchCapeHenryData.pending, (state) => {
+      // Cape Henry Data
+      .addCase(fetchCapeHenryAnalysis.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(fetchCapeHenryData.fulfilled, (state, action) => {
+      .addCase(fetchCapeHenryAnalysis.fulfilled, (state, action) => {
         state.isLoading = false;
         state.capeHenryData = action.payload;
         state.capeHenryLastUpdated = new Date().toISOString();
-        state.errors.capeHenry = null;
+        state.lastUpdated.capeHenry = 'updated';
       })
-      .addCase(fetchCapeHenryData.rejected, (state, action) => {
+      .addCase(fetchCapeHenryAnalysis.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
-        state.errors.capeHenry = action.payload;
       })
-      // Current data
+      // Current Data
       .addCase(fetchCurrentData.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -205,29 +172,29 @@ const noaaSlice = createSlice({
         state.isLoading = false;
         state.currentData = action.payload;
         state.currentLastUpdated = new Date().toISOString();
-        state.errors.current = null;
+        state.lastUpdated.current = 'updated';
       })
       .addCase(fetchCurrentData.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
-        state.errors.current = action.payload;
       })
-      // Currents data by station
+      // Currents Data
       .addCase(fetchCurrentsData.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(fetchCurrentsData.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.currentData = action.payload.data;
+        const { stationId, data } = action.payload;
+        state.currentsData[stationId] = data;
         state.currentLastUpdated = new Date().toISOString();
-        state.errors.currents = null;
+        state.lastUpdated.current = 'updated';
       })
       .addCase(fetchCurrentsData.rejected, (state, action) => {
         state.isLoading = false;
-        state.errors.currents = action.payload;
+        state.error = action.payload;
       })
-      // Threat assessment
+      // Threat Assessment
       .addCase(fetchThreatAssessment.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -236,32 +203,51 @@ const noaaSlice = createSlice({
         state.isLoading = false;
         state.threatAssessment = action.payload;
         state.threatLastUpdated = new Date().toISOString();
-        state.errors.threat = null;
+        state.lastUpdated.threats = 'updated';
       })
       .addCase(fetchThreatAssessment.rejected, (state, action) => {
         state.isLoading = false;
-        state.errors.threat = action.payload;
+        state.error = action.payload;
       })
-      // Connection test
+      // Service Status
+      .addCase(fetchServiceStatus.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchServiceStatus.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.serviceStatus = action.payload;
+      })
+      .addCase(fetchServiceStatus.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      })
+      // Test Connection
       .addCase(testNoaaConnection.pending, (state) => {
-        state.connectionStatus = 'testing';
+        state.isLoading = true;
+        state.error = null;
       })
-      .addCase(testNoaaConnection.fulfilled, (state) => {
-        state.connectionStatus = 'connected';
+      .addCase(testNoaaConnection.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.serviceStatus = action.payload;
       })
-      .addCase(testNoaaConnection.rejected, (state) => {
-        state.connectionStatus = 'disconnected';
+      .addCase(testNoaaConnection.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
       });
-  },
+  }
 });
 
-export const { 
-  setCapeHenryData, 
-  setCurrentData, 
-  setLoading, 
-  setError, 
-  setConnectionStatus,
-  updateDataFreshness 
-} = noaaSlice.actions;
+export const { clearError, clearStationData } = noaaSlice.actions;
+
+// Selectors
+export const selectCapeHenryData = (state) => state.noaa.capeHenryData;
+export const selectCurrentData = (state) => state.noaa.currentData;
+export const selectCurrentsData = (state) => state.noaa.currentsData;
+export const selectThreatAssessment = (state) => state.noaa.threatAssessment;
+export const selectServiceStatus = (state) => state.noaa.serviceStatus;
+export const selectNoaaLoading = (state) => state.noaa.isLoading;
+export const selectNoaaError = (state) => state.noaa.error;
+export const selectLastUpdated = (state) => state.noaa.lastUpdated;
 
 export default noaaSlice.reducer;

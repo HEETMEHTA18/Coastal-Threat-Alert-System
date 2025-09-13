@@ -1,7 +1,7 @@
 ﻿// Dashboard data provider for real-time updates
 import React, { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
-import { testNoaaConnection, fetchCapeHenryData, fetchCurrentsData } from '../store/slices/noaaSlice';
+import { testNoaaConnection, fetchCapeHenryAnalysis, fetchCurrentsData } from '../store/slices/noaaSlice';
 import { setOnlineStatus } from '../store/slices/uiSlice';
 
 const DashboardProvider = ({ children }) => {
@@ -21,8 +21,8 @@ const DashboardProvider = ({ children }) => {
         console.log('NOAA connection test result:', result);
         
         // Fetch initial data
-        dispatch(fetchCapeHenryData());
-        dispatch(fetchCurrentsData('cb0102'));
+        dispatch(fetchCapeHenryAnalysis());
+        dispatch(fetchCurrentsData('cb0201'));
         
       } catch (error) {
         console.error('Dashboard initialization failed:', error);

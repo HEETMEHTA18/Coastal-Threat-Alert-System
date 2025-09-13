@@ -1,7 +1,7 @@
 // Database service for CTAS - handles all database operations
 class DatabaseService {
   constructor() {
-    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
     this.token = localStorage.getItem('ctas_token');
   }
 

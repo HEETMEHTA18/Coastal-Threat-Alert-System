@@ -28,10 +28,12 @@ export const useNoaaData = () => {
   return {
     capeHenryData: noaa.capeHenryData,
     currentData: noaa.currentData,
+    currentsData: noaa.currentsData,
     threatAssessment: noaa.threatAssessment,
+    serviceStatus: noaa.serviceStatus,
     connectionStatus: noaa.connectionStatus,
     isLoading: noaa.isLoading,
-    errors: noaa.errors,
+    error: noaa.error,
     dataFreshness: noaa.dataFreshness,
     lastUpdated: {
       capeHenry: noaa.capeHenryLastUpdated,
@@ -131,19 +133,25 @@ export const useNotifications = () => {
 };
 
 export const useCurrentData = () => {
-  const { currentData, isLoading, errors, dataFreshness } = useNoaaData();
-  const safeData = currentData || {};
+  const { currentsData, isLoading, error, dataFreshness } = useNoaaData();
+  // Get data for the cb0201 station (Chesapeake Bay Bridge Tunnel)
+  const stationData = currentsData?.['cb0201'] || {};
+  
+  // Extract latest observation from the observations array
+  const observations = stationData.observations || [];
+  const latestObservation = observations.length > 0 ? observations[observations.length - 1] : null;
+  
   return {
-    data: safeData,
-    isLoading: isLoading?.currents ?? false,
-    error: errors?.currents ?? null,
-    freshness: dataFreshness?.currents ?? 'unknown',
-    hasData: !!currentData,
-    latest: safeData.latest ?? null,
-    history: Array.isArray(safeData.history) ? safeData.history : [],
-    station: safeData.station ?? null,
+    data: stationData,
+    isLoading: isLoading,
+    error: error,
+    freshness: dataFreshness?.current ?? 'unknown',
+    hasData: !!stationData && Object.keys(stationData).length > 0,
+    latest: latestObservation,
+    history: observations,
+    station: stationData.station_info ?? null,
     // Add any other fields with safe defaults
-    dataOutage: safeData.dataOutage ?? null,
+    dataOutage: stationData.dataOutage ?? null,
   };
 };
 

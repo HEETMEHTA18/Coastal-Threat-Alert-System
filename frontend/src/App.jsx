@@ -6,9 +6,10 @@ import AuthSystem from './components/AuthSystem';
 import InteractiveDashboardRedux from './components/InteractiveDashboardRedux';
 import LogoutPage, { LogoutSuccessPage } from './components/LogoutPage';
 import TestPage from './components/TestPage';
+import ThemeProvider from './components/ThemeProvider';
 import { useUI, useAuth } from './store/hooks';
 import { setCurrentView, setAppLoading } from './store/slices/uiSlice';
-import { initializeAuth } from './store/slices/authSlice';
+import { initializeAuth, setDemoUser } from './store/slices/authSlice';
 import { useInternetConnectivity } from './hooks/useConnectivity';
 
 // ProtectedRoute component to handle authentication
@@ -91,6 +92,7 @@ function AppContent() {
   }
 
   return (
+    <ThemeProvider>
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage onGetStarted={() => navigate('/login')} />} />
@@ -150,6 +152,7 @@ function AppContent() {
         {/* Fallback for any other routes */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+    </ThemeProvider>
   );
 }
 

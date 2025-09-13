@@ -6,8 +6,8 @@ const xml2js = require('xml2js');
 
 class NOAAService {
   constructor() {
-    this.baseURL = 'https://tidesandcurrents.noaa.gov/api/datagetter';
-    this.apiToken = process.env.NOAA_API_KEY; // caWAvqgssoThmindCpCOzjFDMKNkzvqq
+    this.baseURL = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
+    this.apiToken = process.env.NOAA_API_KEY; // Will be empty for no-token mode
     this.weatherBaseURL = 'https://www.ncdc.noaa.gov/cdo-web/api/v2';
     
     // Enhanced station list with your token access
@@ -89,8 +89,8 @@ class NOAAService {
       ...options
     };
 
-    // Add your API token for enhanced access
-    if (this.apiToken && this.apiToken !== 'your_noaa_token_here') {
+    // Add API token only if available (no-token mode works without it)
+    if (this.apiToken && this.apiToken.trim() && this.apiToken !== 'your_noaa_token_here') {
       params.token = this.apiToken;
     }
 
@@ -112,8 +112,8 @@ class NOAAService {
     return date.toISOString().slice(0, 16).replace('T', ' ');
   }
 
-  // Get current data (your Cape Henry example)
-  async getCurrentData(stationId = 'cb0102', hoursBack = 24) {
+  // Get current data (Chesapeake Bay Bridge Tunnel)
+  async getCurrentData(stationId = 'cb0201', hoursBack = 24) {
     try {
       const params = this.buildRequest('currents', stationId, { hoursBack });
       const response = await axios.get(this.baseURL, { params });

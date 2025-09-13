@@ -11,6 +11,14 @@ const SatelliteMapWorking = () => {
   const geocoder = useRef(null);
 
   useEffect(() => {
+    // Check if Google Maps API key is configured
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!apiKey || apiKey === 'your_google_maps_api_key_here') {
+      setError('Google Maps API key not configured. Please add VITE_GOOGLE_MAPS_API_KEY to your .env file.');
+      setIsLoading(false);
+      return;
+    }
+
     // Check if Google Maps script is already loaded
     if (window.google && window.google.maps) {
       initMap();
@@ -19,7 +27,7 @@ const SatelliteMapWorking = () => {
 
     // Load Google Maps script
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=geometry`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
     script.async = true;
     script.defer = true;
     

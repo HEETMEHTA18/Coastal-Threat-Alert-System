@@ -58,6 +58,17 @@ module.exports = {
           800: '#075985',
           900: '#0c4a6e',
         },
+        // Theme-aware colors using CSS variables
+        theme: {
+          'bg-primary': 'var(--bg-primary)',
+          'bg-secondary': 'var(--bg-secondary)',
+          'bg-tertiary': 'var(--bg-tertiary)',
+          'text-primary': 'var(--text-primary)',
+          'text-secondary': 'var(--text-secondary)',
+          'text-muted': 'var(--text-muted)',
+          'border': 'var(--border-color)',
+          'accent': 'var(--accent-color)',
+        },
       },
     },
   },

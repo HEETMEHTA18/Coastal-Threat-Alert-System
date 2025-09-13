@@ -210,6 +210,16 @@ const uiSlice = createSlice({
       state.theme.soundEffects = !state.theme.soundEffects;
     },
     
+    // Update multiple theme settings at once
+    updateTheme: (state, action) => {
+      state.theme = { ...state.theme, ...action.payload };
+    },
+    
+    // Update multiple notification settings at once
+    updateNotificationSettings: (state, action) => {
+      state.notifications = { ...state.notifications, ...action.payload };
+    },
+    
     // Notification preferences
     setNotificationPosition: (state, action) => {
       state.notifications.position = action.payload;
@@ -375,6 +385,8 @@ export const {
   setFontSize,
   toggleAnimations,
   toggleSoundEffects,
+  updateTheme,
+  updateNotificationSettings,
   setNotificationPosition,
   setNotificationDuration,
   setMapZoom,

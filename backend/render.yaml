@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: ctas-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false # Set this in Render dashboard
+      - key: JWT_SECRET
+        sync: false # Set this in Render dashboard
+      - key: CORS_ORIGIN
+        value: https://your-frontend.vercel.app
+      - key: OPENWEATHER_API_KEY
+        sync: false # Set this in Render dashboard
+      - key: NOAA_API_KEY
+        sync: false # Set this in Render dashboard
+      - key: MAPBOX_ACCESS_TOKEN
+        sync: false # Set this in Render dashboard
+      - key: TWILIO_ACCOUNT_SID
+        sync: false # Set this in Render dashboard
+      - key: TWILIO_AUTH_TOKEN
+        sync: false # Set this in Render dashboard
+      - key: EMAIL_USER
+        sync: false # Set this in Render dashboard
+      - key: EMAIL_PASS
+        sync: false # Set this in Render dashboard
+    domains:
+      - ctas-backend-api.onrender.com

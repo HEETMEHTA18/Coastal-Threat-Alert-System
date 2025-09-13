@@ -4,7 +4,7 @@ import axiosInstance from '../services/axiosInstance';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import { useDispatch } from 'react-redux';
-import { loginUser, registerUser, setCredentials } from '../store/slices/authSlice';
+import { loginUser, registerUser, setCredentials, setUserFromLogin } from '../store/slices/authSlice';
 import ConnectivityIndicator from './ConnectivityIndicator';
 
 const AuthSystem = ({ onAuthSuccess, onBack }) => {
@@ -36,14 +36,42 @@ const AuthSystem = ({ onAuthSuccess, onBack }) => {
       setLoading(true);
       
       if (isLogin) {
-        // Handle login with Redux
-        const result = await dispatch(loginUser({
-          email: input.email,
-          password: input.password,
-        })).unwrap();
+        try {
+          // Try to login with backend first
+          const result = await dispatch(loginUser({
+            email: input.email,
+            password: input.password,
+          })).unwrap();
 
-        if (result) {
-          toast.success('Login successful! Welcome back.');
+          if (result) {
+            toast.success('Login successful! Welcome back.');
+            
+            // Clear form
+            setInput({
+              name: "",
+              email: "",
+              password: "",
+              role: "",
+              organization: "",
+            });
+            
+            // Set session start time for logout page statistics
+            localStorage.setItem('session_start', Date.now().toString());
+            
+            // Navigate to dashboard using React Router
+            navigate('/dashboard');
+          }
+        } catch (error) {
+          // Fallback to demo login with name generation if backend fails
+          console.log('Backend login failed, using demo mode with name generation');
+          
+          dispatch(setUserFromLogin({
+            email: input.email,
+            role: 'user',
+            department: 'Coastal Monitoring'
+          }));
+          
+          toast.success(`Demo login successful! Welcome ${input.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}.`);
           
           // Clear form
           setInput({

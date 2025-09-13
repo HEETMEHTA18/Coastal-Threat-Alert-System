@@ -8,7 +8,7 @@ function BackendCheck() {
   useEffect(() => {
     const checkBackendHealth = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/health');
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/health`);
         if (response.ok) {
           const data = await response.json();
           setStatus('Connected');
