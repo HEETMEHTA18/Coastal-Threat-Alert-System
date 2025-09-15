@@ -22,11 +22,13 @@ import AnalyticsPage from './AnalyticsPage';
 import CurrentMonitorService from '../services/currentMonitorService';
 import SimpleSettingsModal from './SimpleSettingsModal';
 import UserProfileDisplay from './UserProfileDisplay';
+import LogoFallback from './LogoFallback';
 
 const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
   const dispatch = useDispatch();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [mapProvider, setMapProvider] = useState('interactive'); // Default to interactive analysis
   const [currentMonitor, setCurrentMonitor] = useState(null);
   const [currentStats, setCurrentStats] = useState({
@@ -153,7 +155,11 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
   };
 
   const handleSidebarToggle = () => {
-    dispatch(toggleSidebar());
+    if (isMobileView) {
+      setMobileOpen((s) => !s);
+    } else {
+      dispatch(toggleSidebar());
+    }
   };
 
   const handleLogout = () => {
@@ -547,29 +553,51 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
 
   // Handle window resize for responsive layout with improved mobile support
   useEffect(() => {
+    let timeout = null;
     const handleResize = () => {
       const isMobile = window.innerWidth < 768;
-      setIsMobileView(isMobile);
-      
+      // only update when crossing breakpoint to avoid unnecessary rerenders
+      setIsMobileView((prev) => {
+        if (prev !== isMobile) return isMobile;
+        return prev;
+      });
+
       // Auto-collapse sidebar on mobile by default for better UX
-      if (isMobile && !sidebarCollapsed) {
+      if (isMobile && !sidebarCollapsed && !mobileOpen) {
         dispatch(toggleSidebar());
       }
     };
-    
-    handleResize(); // Initial check
-    window.addEventListener('resize', handleResize);
-    
-    // Handle orientation change on mobile devices
-    window.addEventListener('orientationchange', () => {
-      setTimeout(handleResize, 100);
-    });
-    
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
+
+    const debounced = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(handleResize, 120);
     };
-  }, [dispatch, sidebarCollapsed]);
+
+    handleResize(); // Initial check
+    window.addEventListener('resize', debounced);
+
+    // Handle orientation change on mobile devices
+    const onOrientation = () => setTimeout(handleResize, 120);
+    window.addEventListener('orientationchange', onOrientation);
+
+    return () => {
+      window.removeEventListener('resize', debounced);
+      window.removeEventListener('orientationchange', onOrientation);
+      clearTimeout(timeout);
+    };
+  }, [dispatch, sidebarCollapsed, mobileOpen]);
+
+  // Lock body scroll when mobile overlay is open
+  useEffect(() => {
+    if (isMobileView && mobileOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+    return undefined;
+  }, [isMobileView, mobileOpen]);
 
   return (
     <DashboardProvider>
@@ -579,8 +607,8 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
           background: 'linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%)'
         }}
       >
-        {/* Sidebar */}
-        <div className={`fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out ${sidebarCollapsed && !isMobileView ? 'w-20' : 'w-72'} ${isMobileView && sidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}`}>
+  {/* Sidebar */}
+  <div className={`fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out ${!isMobileView ? (sidebarCollapsed ? 'w-20' : 'w-72') : 'w-72'} ${isMobileView ? (mobileOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'}`}>
           {/* Sidebar Content */}
           <div 
             className="h-full backdrop-blur-sm flex flex-col overflow-hidden sidebar-theme"
@@ -591,6 +619,22 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
             }}
           >
             {/* Sidebar Header */}
+            {isMobileView && mobileOpen && (
+              <div className="p-3 flex items-center justify-between border-b" style={{ borderColor: 'var(--border-color)' }}>
+                <div className="flex items-center gap-3">
+                  <LogoFallback size="md" alt="CTAS" />
+                  <h3 style={{ color: 'var(--text-primary)' }} className="font-bold">CTAS</h3>
+                </div>
+                <button
+                  onClick={() => setMobileOpen(false)}
+                  className="p-2 rounded-lg"
+                  aria-label="Close navigation"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            )}
             {!isMobileView && (
               <div 
                 className="p-4 border-b"
@@ -600,9 +644,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
               >
                 <div className="flex items-center justify-between">
                   <div className={`flex items-center ${sidebarCollapsed ? 'justify-center w-full' : ''}`}>
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold text-2xl"></span>
-                    </div>
+                    <LogoFallback size="md" alt="CTAS" />
                     {!sidebarCollapsed && (
                       <div className="ml-3">
                         <h2 style={{ color: 'var(--text-primary)' }} className="font-bold text-lg">CTAS</h2>
@@ -641,9 +683,12 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
               ].map((tab) => {
                 const Icon = tab.icon;
                 return (
-                  <button
+                    <button
                     key={tab.id}
-                    onClick={() => handleTabChange(tab.id)}
+                    onClick={() => {
+                      handleTabChange(tab.id);
+                      if (isMobileView && mobileOpen) setMobileOpen(false);
+                    }}
                     className={`w-full flex items-center gap-3 p-4 rounded-xl transition-all duration-200 touch-manipulation min-h-[56px] ${sidebarCollapsed && !isMobileView ? 'justify-center' : ''}`}
                     style={{
                       backgroundColor: activeTab === tab.id ? 'var(--sidebar-active)' : 'transparent',
@@ -847,14 +892,12 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                     onMouseLeave={(e) => {
                       e.target.style.backgroundColor = 'transparent';
                     }}
-                    aria-label={sidebarCollapsed ? 'Open navigation menu' : 'Close navigation menu'}
+                    aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
                   >
-                    {sidebarCollapsed ? <Menu className="w-6 h-6" /> : <X className="w-6 h-6" />}
+                    {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                   </button>
                   <div className="flex items-center">
-                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold text-lg"></span>
-                    </div>
+                    <LogoFallback size="sm" alt="CTAS" />
                     <h2 style={{ color: 'var(--text-primary)' }} className="font-bold text-lg ml-2">CTAS</h2>
                   </div>
                 </div>

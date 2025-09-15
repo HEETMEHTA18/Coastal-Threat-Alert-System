@@ -1,24 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Home, User, Clock, Award, BarChart3, CheckCircle, ArrowLeft, Shield, Activity } from 'lucide-react';
+import { LogOut, User, CheckCircle, ArrowLeft, Shield } from 'lucide-react';
 
 const LogoutPage = ({ user, onConfirmLogout, onCancel }) => {
-  const [sessionStats, setSessionStats] = useState({
-    loginTime: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-    pagesVisited: 8,
-    alertsChecked: 3,
-    reportsSubmitted: 1
-  });
-
-  const formatSessionDuration = (loginTime) => {
-    const duration = Date.now() - loginTime.getTime();
-    const hours = Math.floor(duration / (1000 * 60 * 60));
-    const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    return `${minutes}m`;
-  };
+  const [sessionStats, setSessionStats] = useState(null);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-4">
@@ -58,39 +42,11 @@ const LogoutPage = ({ user, onConfirmLogout, onCancel }) => {
               </div>
             </div>
 
-            {/* Session Summary */}
+            {/* Minimal message to keep UI clean */}
             <div className="border-t border-white/10 pt-4">
-              <h3 className="text-white font-medium mb-3">Session Summary</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center space-x-2">
-                  <Clock className="w-4 h-4 text-blue-400" />
-                  <div>
-                    <p className="text-blue-200">Session Time</p>
-                    <p className="text-white font-medium">{formatSessionDuration(sessionStats.loginTime)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Activity className="w-4 h-4 text-green-400" />
-                  <div>
-                    <p className="text-blue-200">Pages Visited</p>
-                    <p className="text-white font-medium">{sessionStats.pagesVisited}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Shield className="w-4 h-4 text-yellow-400" />
-                  <div>
-                    <p className="text-blue-200">Alerts Checked</p>
-                    <p className="text-white font-medium">{sessionStats.alertsChecked}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <User className="w-4 h-4 text-purple-400" />
-                  <div>
-                    <p className="text-blue-200">Reports</p>
-                    <p className="text-white font-medium">{sessionStats.reportsSubmitted}</p>
-                  </div>
-                </div>
-              </div>
+              <p className="text-blue-200 text-sm">
+                You can safely logout now. Your data will remain secure.
+              </p>
             </div>
           </div>
 

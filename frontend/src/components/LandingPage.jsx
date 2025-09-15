@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import CTASLogo from './CTASLogo';
+import LogoFallback from './LogoFallback';
 import { ChevronRight, Play, BarChart3, Shield, Users, Globe, AlertTriangle, Waves, Zap, Award, TrendingUp, MapPin, LogIn, UserPlus } from 'lucide-react';
 import { useAuth } from '../store/hooks';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +10,8 @@ const LandingPage = ({ onGetStarted, onLogin, onRegister }) => {
   const { isAuthenticated } = useAuth();
   const [hoveredCard, setHoveredCard] = useState(null);
   const [currentStatIndex, setCurrentStatIndex] = useState(0);
+  const [mounted, setMounted] = useState(false);
+  const [navLoading, setNavLoading] = useState(true);
 
   // Redirect authenticated users to dashboard
   useEffect(() => {
@@ -87,6 +91,18 @@ const LandingPage = ({ onGetStarted, onLogin, onRegister }) => {
     return () => clearInterval(interval);
   }, []);
 
+  // Trigger mount animations
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 50);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Navbar skeleton loading effect
+  useEffect(() => {
+    const t = setTimeout(() => setNavLoading(false), 1200);
+    return () => clearTimeout(t);
+  }, []);
+
   const handleCardHover = useCallback((index) => {
     setHoveredCard(index);
   }, []);
@@ -94,6 +110,20 @@ const LandingPage = ({ onGetStarted, onLogin, onRegister }) => {
   const handleCardLeave = useCallback(() => {
     setHoveredCard(null);
   }, []);
+
+  // Auth-aware navigation helpers for dashboard tabs
+  const goTo = (pathIfAuthed) => {
+    if (isAuthenticated) {
+      navigate(pathIfAuthed);
+    } else {
+      navigate('/login', { state: { from: pathIfAuthed } });
+    }
+  };
+
+  const goToDashboardTab = (tab) => {
+    const path = `/dashboard${tab === 'overview' ? '' : `/${tab}`}`;
+    goTo(path);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 relative overflow-hidden">
@@ -105,47 +135,72 @@ const LandingPage = ({ onGetStarted, onLogin, onRegister }) => {
       </div>
 
       {/* Navigation */}
-      <nav className="relative z-10 p-4 sm:p-6" role="navigation" aria-label="Main navigation">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg sm:text-xl" role="img" aria-label="Wave">🌊</span>
+        {/* Navigation - rounded pill style */}
+        <nav className="relative z-10 p-4 sm:p-6" role="navigation" aria-label="Main navigation">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-gradient-to-r from-slate-800/60 to-slate-900/40 border border-white/6 rounded-3xl px-4 py-3 backdrop-blur-sm shadow-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <LogoFallback variant="icon" size="lg" />
+                    <span className="text-white font-semibold text-lg hidden sm:inline">CTAS</span>
+                  </div>
+                </div>
+
+                <div className="hidden md:flex items-center gap-6">
+                  {navLoading ? (
+                    <>
+                      <div className="h-6 w-16 bg-slate-600/30 rounded animate-pulse"></div>
+                      <div className="h-6 w-20 bg-slate-600/30 rounded animate-pulse"></div>
+                      <div className="h-6 w-18 bg-slate-600/30 rounded animate-pulse"></div>
+                      <div className="h-6 w-16 bg-slate-600/30 rounded animate-pulse"></div>
+                      <div className="h-6 w-20 bg-slate-600/30 rounded animate-pulse"></div>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => goToDashboardTab('currents')} className="text-slate-200 hover:text-white font-bold text-base transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Currents</button>
+                      <button onClick={() => goToDashboardTab('weather')} className="text-slate-200 hover:text-white font-bold text-base transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Weather</button>
+                      <button onClick={() => goToDashboardTab('satellite')} className="text-slate-200 hover:text-white font-bold text-base transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Satellite</button>
+                      <button onClick={() => goToDashboardTab('reports')} className="text-slate-200 hover:text-white font-bold text-base transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Reports</button>
+                      <button onClick={() => goToDashboardTab('analytics')} className="text-slate-200 hover:text-white font-bold text-base transition-all duration-300 hover:scale-105 hover:drop-shadow-lg">Analytics</button>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {navLoading ? (
+                    <>
+                      <div className="h-8 w-16 bg-slate-600/30 rounded animate-pulse"></div>
+                      <div className="h-8 w-20 bg-slate-600/30 rounded animate-pulse"></div>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => (onLogin ? onLogin() : window.location.assign('/login'))}
+                        className="bg-white/6 text-white px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-bold"
+                      >
+                        Sign in
+                      </button>
+                      <button
+                        onClick={() => (onRegister ? onRegister() : window.location.assign('/register'))}
+                        className="bg-gradient-to-r from-cyan-500 to-emerald-400 text-slate-900 px-3 py-2 rounded-lg shadow-md text-sm font-bold hover:scale-105 transition-transform"
+                      >
+                        Sign up
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
-            <span className="text-white font-bold text-xl sm:text-2xl">CTAS</span>
           </div>
-          <div className="flex items-center space-x-2 sm:space-x-3">
-            <button 
-              onClick={onLogin || onGetStarted}
-              className="bg-white/10 backdrop-blur-lg text-white px-4 py-3 sm:px-4 sm:py-2 rounded-lg border border-white/20 hover:bg-white/20 transition-all duration-300 text-sm sm:text-base min-h-[44px] flex items-center justify-center touch-manipulation"
-              aria-label="Sign in to your account"
-            >
-              <LogIn className="w-4 h-4 mr-2 sm:mr-1" />
-              <span className="hidden xs:inline">Sign In</span>
-            </button>
-            <button 
-              onClick={onRegister || onGetStarted}
-              className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 sm:px-4 sm:py-2 rounded-lg hover:shadow-lg transition-all duration-300 text-sm sm:text-base min-h-[44px] flex items-center justify-center touch-manipulation"
-              aria-label="Create new account"
-            >
-              <UserPlus className="w-4 h-4 mr-2 sm:mr-1" />
-              <span className="hidden xs:inline">Sign Up</span>
-            </button>
-          </div>
-        </div>
-      </nav>
+        </nav>
 
       {/* Hero Section */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-16 sm:pt-20 pb-20 sm:pb-32">
         <div className="text-center mb-16 sm:mb-20">
           <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-9xl font-black text-white mb-6 sm:mb-8 leading-tight">
             <span className="bg-gradient-to-r from-blue-400 via-cyan-300 to-emerald-400 bg-clip-text text-transparent">
-              Coastal
-            </span>
-            <br />
-            <span className="text-white drop-shadow-2xl">Threat Alert</span>
-            <br />
-            <span className="bg-gradient-to-r from-emerald-400 via-blue-300 to-purple-400 bg-clip-text text-transparent">
-              System
+              Coastal Guardian
             </span>
           </h1>
           
@@ -178,7 +233,8 @@ const LandingPage = ({ onGetStarted, onLogin, onRegister }) => {
             </button>
             
             <button 
-              className="group w-full sm:w-auto bg-white/10 backdrop-blur-lg text-white px-8 py-4 rounded-2xl font-bold text-lg border border-white/30 hover:bg-white/20 transition-all duration-300 flex items-center justify-center space-x-2 focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-slate-900 min-h-[56px] touch-manipulation"
+              onClick={() => window.open('https://drive.google.com/file/d/1zxw7652rBwIp9_uT5meS2erog_FdORRp/view?usp=sharing', '_blank')}
+              className="group w-full sm:w-auto bg-white/10 backdrop-blur-lg text-white px-8 py-4 rounded-2xl font-bold text-lg border border-white/30 hover:bg-white/20 transition-all duration-300 flex items-center justify-center space-x-2 focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-slate-900 min-h-[56px] touch-manipulation hover:scale-105"
               aria-label="Watch a demonstration of the system"
             >
               <Play className="w-5 h-5" />
@@ -192,7 +248,8 @@ const LandingPage = ({ onGetStarted, onLogin, onRegister }) => {
           {features.map((feature, index) => (
             <div
               key={index}
-              className="group relative bg-white/5 backdrop-blur-lg rounded-2xl p-6 sm:p-8 border border-white/10 hover:bg-white/10 transition-all duration-500 transform hover:scale-105 hover:-translate-y-2 cursor-pointer touch-manipulation"
+              className={`group relative bg-white/5 backdrop-blur-lg rounded-2xl p-6 sm:p-8 border border-white/10 hover:bg-white/10 transition-all duration-500 transform ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'} hover:scale-105 hover:-translate-y-2 cursor-pointer touch-manipulation`}
+              style={{ transitionDelay: `${index * 80}ms` }}
               onMouseEnter={() => handleCardHover(index)}
               onMouseLeave={handleCardLeave}
               onFocus={() => handleCardHover(index)}
@@ -232,6 +289,8 @@ const LandingPage = ({ onGetStarted, onLogin, onRegister }) => {
             </div>
           ))}
         </div>
+
+        {/* Dashboard preview removed as requested by user */}
 
         {/* Impact Statistics Section */}
         <div className="bg-white/5 backdrop-blur-lg rounded-3xl p-8 sm:p-12 border border-white/10 mx-4 mb-16">

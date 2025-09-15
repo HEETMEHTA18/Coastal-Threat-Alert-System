@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import CTASLogo from './CTASLogo';
+import LogoFallback from './LogoFallback';
 import { Mail, Lock, User, Eye, EyeOff, UserPlus, ArrowLeft, Building, Phone, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
@@ -107,9 +109,7 @@ const Register = ({ onBack }) => {
         {/* Header Section */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-4 mb-6">
-            <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-400 rounded-2xl flex items-center justify-center shadow-xl shadow-emerald-500/25 transform hover:scale-105 transition-transform duration-300">
-              <span className="text-white text-3xl">🌊</span>
-            </div>
+            <LogoFallback variant="icon" size="lg" />
             <div>
               <h1 className="text-white text-4xl font-bold tracking-tight">CTAS</h1>
               <p className="text-emerald-300/80 text-sm">Coastal Threat Alert System</p>

@@ -21,6 +21,29 @@ connectDB();
 // Security Middleware
 app.use(helmet());
 
+// CORS Configuration - enable for frontend dev and production origins
+const corsOptions = {
+  origin: [
+    'https://coastal-threat-alert-system-two.vercel.app',
+    'http://localhost:5173'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin'
+  ],
+  optionsSuccessStatus: 200,
+  preflightContinue: false,
+  maxAge: 86400
+};
+
+// Apply CORS middleware early so all endpoints (including /api/health) return CORS headers
+app.use(cors(corsOptions));
+
 // Health Check Route (NO CORS - for Render health checks)
 app.get('/api/health', (req, res) => {
   res.status(200).json({
@@ -32,25 +55,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// CORS Configuration - Production Ready (Single Origin)
-const corsOptions = {
-  origin: 'https://coastal-threat-alert-system-two.vercel.app',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With',
-    'Accept',
-    'Origin'
-  ],
-  optionsSuccessStatus: 200, // For legacy browser support
-  preflightContinue: false, // Pass control to next handler after preflight
-  maxAge: 86400 // Cache preflight for 24 hours
-};
-
-// Apply CORS middleware to all routes except health check
-app.use(cors(corsOptions));
 
 // Body Parsing Middleware
 app.use(express.json({ limit: '10mb' }));
@@ -77,6 +81,7 @@ app.use('/api/noaa', require('./routes/noaaRoutes'));
 app.use('/api/enhanced-coastal', require('./routes/enhancedCoastal'));
 app.use('/api/community-reports', require('./routes/communityReports'));
 app.use('/api/threatReports', require('./routes/threatReports'));
+app.use('/api/ai', require('./routes/ai'));
 
 // Test Weather Service Route
 app.get('/api/test/weather', async (req, res) => {

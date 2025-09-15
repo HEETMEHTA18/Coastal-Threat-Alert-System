@@ -1,6 +1,7 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Mic, MicOff, Volume2, Settings } from 'lucide-react';
 import { useAuth } from '../store/hooks';
+import { sendChatMessage } from '../services/chatService';
 
 const ChatbotWidget = ({ onClose }) => {
   const [messages, setMessages] = useState([
@@ -39,13 +40,22 @@ const ChatbotWidget = ({ onClose }) => {
     setIsTyping(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Prefer quick FAQ answer if available
+      const faq = getFAQAnswer(userMessage.text);
+      const result = faq ? { message: faq } : await sendChatMessage({ text: userMessage.text, mode: responseMode, context: { user: user?.name || 'Guest' } });
 
-      const response = "I understand you're asking about coastal monitoring. I can help analyze oceanographic conditions, erosion patterns, and flood risk metrics. What specific data would you like me to examine?";
+      const responseText = result?.message || "I'm experiencing some technical difficulties. Please try again.";
+
+      // Simulated streaming typing effect for a real-time feel
+      let assembled = '';
+      for (const ch of responseText) {
+        assembled += ch;
+        await new Promise((r) => setTimeout(r, 8));
+      }
 
       const botMessage = {
         id: Date.now() + 1,
-        text: response,
+        text: assembled,
         isBot: true,
         timestamp: new Date(),
         coastalScore: 78
@@ -74,6 +84,137 @@ const ChatbotWidget = ({ onClose }) => {
       utterance.pitch = 1;
       speechSynthesis.speak(utterance);
     }
+  };
+
+  // Simple FAQ mapping for common questions with formatted answers
+  const getFAQAnswer = (question) => {
+    const q = String(question).toLowerCase();
+    const entries = [
+      {
+        match: ['what is ctas', 'about ctas', 'ctas'],
+        text:
+`CTAS (Coastal Threat Alert System)
+
+- Purpose: Early warning for coastal communities
+- Key modules: Currents, Weather, Satellite, Reports, Analytics
+- Access: Dashboard tabs in the top navigation`
+      },
+      {
+        match: ['how to see currents', 'currents', 'ocean current'],
+        text:
+`Currents – Quick steps:
+1) Open Dashboard → Currents
+2) Check live speed and direction
+3) Click Refresh to update data`
+      },
+      {
+        match: ['weather', 'forecast', 'rain'],
+        text:
+`Weather – You can view:
+- Current conditions (temp, humidity, wind)
+- 5‑day forecast and alerts
+Go to Dashboard → Weather`
+      },
+      {
+        match: ['tide', 'tides', 'water level'],
+        text:
+`Tides & Water Level – Options:
+- View recent tide heights and trends
+- Check next high/low tide times
+Path: Dashboard → Weather (water level)`
+      },
+      {
+        match: ['satellite', 'imagery'],
+        text:
+`Satellite – Explore:
+- Sea surface temperature, chlorophyll, cloud cover
+- Interactive Mapbox coastal monitor
+Open Dashboard → Satellite`
+      },
+      {
+        match: ['report', 'community'],
+        text:
+`Reports – Submit or review:
+- Flooding, erosion, debris, observations
+Path: Dashboard → Reports`
+      },
+      {
+        match: ['analytics', 'risk', 'threat'],
+        text:
+`Analytics – Understand risk drivers:
+- Storm surge, erosion, navigation, blue‑carbon
+- Trend charts and summaries`
+      },
+      {
+        match: ['flood', 'surge'],
+        text:
+`Flood/Surge – Quick guide:
+1) Check Weather → Alerts for warnings
+2) Open Analytics → Threat Index
+3) Verify shelter locations on the map`
+      },
+      {
+        match: ['erosion'],
+        text:
+`Coastal Erosion – What we show:
+- Hotspots based on satellite change detection
+- Recent shoreline shifts
+- Community reports overlay`
+      },
+      {
+        match: ['mangrove', 'blue carbon'],
+        text:
+`Blue‑Carbon/Mangroves – Insights:
+- NDVI/health indicators
+- Coverage change and alerts
+Ask: "Show mangrove health this month"`
+      },
+      {
+        match: ['shelter', 'evacuation'],
+        text:
+`Shelters & Safety – Steps:
+1) Open map overlays → Shelters
+2) Note nearest routes
+3) Follow local authority guidance`
+      },
+      {
+        match: ['data source', 'where data', 'source'],
+        text:
+`Data Sources:
+- NOAA currents and water level
+- OpenWeather for conditions/alerts
+- NASA/ESA satellite imagery`
+      },
+      {
+        match: ['how to report', 'file report', 'submit report'],
+        text:
+`Create a Report:
+1) Go to Dashboard → Reports
+2) Click "New Report"
+3) Add photos, location, details → Submit`
+      },
+      {
+        match: ['units', 'knots', 'km/h', 'convert'],
+        text:
+`Units quick reference:
+- 1 knot ≈ 1.852 km/h
+- 10 kts ≈ 18.5 km/h
+- Directions are in degrees (0–360)`
+      },
+      {
+        match: ['safety', 'tips'],
+        text:
+`Safety Tips:
+- Avoid low‑lying coastal roads during surge
+- Heed official warnings and SMS alerts
+- Keep emergency kit and contacts ready`
+      }
+    ];
+
+    for (const entry of entries) {
+      if (entry.match.some(m => q.includes(m))) return entry.text;
+    }
+    return null;
   };
 
   return (
