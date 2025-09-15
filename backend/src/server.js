@@ -11,7 +11,6 @@ require("dotenv").config({ path: path.join(__dirname, "../.env") });
 console.log("MONGODB_URI =", process.env.MONGODB_URI);
 console.log("PORT =", process.env.PORT);
 
-
 const connectDB = require('./lib/db.js');
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -22,40 +21,36 @@ connectDB();
 // Security Middleware
 app.use(helmet());
 
-// CORS Configuration for Production and Development
+// Health Check Route (NO CORS - for Render health checks)
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    message: 'CTAS Backend Server is running',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// CORS Configuration - Production Ready (Single Origin)
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, etc.)
-    if (!origin) return callback(null, true);
-    
-    // Handle comma-separated origins from environment variable
-    const envOrigins = process.env.CORS_ORIGIN ? 
-      process.env.CORS_ORIGIN.split(',').map(url => url.trim()) : [];
-    
-    const allowedOrigins = [
-      'http://localhost:5173',  // Local development
-      'https://coastal-threat-alert-system-two.vercel.app', // Remove trailing slash
-      'https://coastal-threat-alert-system-myz7b50jn-heetmehta18s-projects.vercel.app', // Actual Vercel URL
-      ...envOrigins // Spread environment origins
-    ].filter(Boolean); // Remove undefined values
-    
-    console.log('CORS check - Origin:', origin);
-    console.log('CORS check - Allowed origins:', allowedOrigins);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: 'https://coastal-threat-alert-system-two.vercel.app',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin'
+  ],
+  optionsSuccessStatus: 200, // For legacy browser support
+  preflightContinue: false, // Pass control to next handler after preflight
+  maxAge: 86400 // Cache preflight for 24 hours
 };
 
+// Apply CORS middleware to all routes except health check
 app.use(cors(corsOptions));
-
 
 // Body Parsing Middleware
 app.use(express.json({ limit: '10mb' }));
@@ -67,19 +62,10 @@ app.use(compression());
 // Logging
 app.use(morgan('combined'));
 
-// Health Check Route
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    message: 'CTAS Backend Server is running',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
+// Static file serving for uploaded media
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // API Routes
-app.use('/api/health', require('./routes/healthCheck'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/threats', require('./routes/threats'));
 app.use('/api/reports', require('./routes/reports'));

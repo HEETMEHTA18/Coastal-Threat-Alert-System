@@ -7,7 +7,13 @@ class OceanCurrentsService {
     this.currentStationsAPI = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
     this.stationsListAPI = 'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json';
     
-    // Indian Ocean and coastal current monitoring stations
+    // Rate limiting
+    this.lastApiCall = 0;
+    this.minApiInterval = 10000; // Minimum 10 seconds between API calls
+    this.cache = new Map();
+    this.cacheTimeout = 300000; // 5 minutes cache
+    
+    // Indian Ocean and coastal current monitoring stations - reduced to 3 main stations
     this.indianOceanStations = [
       {
         id: 'mumbai_port',
@@ -15,31 +21,7 @@ class OceanCurrentsService {
         lat: 18.9220,
         lng: 72.8347,
         type: 'current',
-        noaaId: '9414290' // Using closest equivalent
-      },
-      {
-        id: 'chennai_port',
-        name: 'Chennai Port Current Monitor', 
-        lat: 13.0827,
-        lng: 80.2707,
-        type: 'current',
-        noaaId: '9413450'
-      },
-      {
-        id: 'kochi_port',
-        name: 'Kochi Port Current Monitor',
-        lat: 9.9312,
-        lng: 76.2673,
-        type: 'current',
-        noaaId: '9410170'
-      },
-      {
-        id: 'visakhapatnam_port',
-        name: 'Visakhapatnam Port Current Monitor',
-        lat: 17.7231,
-        lng: 83.3007,
-        type: 'current',
-        noaaId: '9418767'
+        noaaId: 'DEMO_MUMBAI_PORT' // Use demo data for Indian waters
       },
       {
         id: 'kandla_port',
@@ -47,32 +29,33 @@ class OceanCurrentsService {
         lat: 23.0300,
         lng: 70.2167,
         type: 'current',
-        noaaId: '9419750'
+        noaaId: 'DEMO_INDIAN_STATION' // Use demo data for Indian waters
+      },
+      {
+        id: 'mumbai_offshore',
+        name: 'Mumbai Offshore Platform',
+        lat: 19.2500,
+        lng: 72.6500,
+        type: 'current',
+        noaaId: 'DEMO_OFFSHORE_PLATFORM' // Use demo data for Indian waters
       }
     ];
 
-    // Tidal stations for Indian coastal areas
+    // Tidal stations for Indian coastal areas - reduced to 2 main stations
     this.tidalStations = [
       {
         id: 'mumbai_tide',
         name: 'Mumbai High/Low Tide',
         lat: 19.0760,
         lng: 72.8777,
-        noaaId: '9414290'
+        noaaId: 'DEMO_MUMBAI_TIDE' // Use demo data for Indian waters
       },
       {
-        id: 'chennai_tide', 
-        name: 'Chennai Marina Tide',
-        lat: 13.0475,
-        lng: 80.2785,
-        noaaId: '9413450'
-      },
-      {
-        id: 'kochi_tide',
-        name: 'Kochi Backwater Tide',
-        lat: 9.9312,
-        lng: 76.2673,
-        noaaId: '9410170'
+        id: 'kandla_tide',
+        name: 'Kandla Port Tide',
+        lat: 23.0300,
+        lng: 70.2167,
+        noaaId: 'DEMO_KANDLA_TIDE' // Use demo data for Indian waters
       }
     ];
   }
@@ -145,17 +128,64 @@ class OceanCurrentsService {
     return degrees * (Math.PI/180);
   }
 
+  // Rate limiting helper
+  async rateLimitedFetch(url, options = {}) {
+    const cacheKey = url;
+    const now = Date.now();
+    
+    // Check cache first
+    const cached = this.cache.get(cacheKey);
+    if (cached && (now - cached.timestamp) < this.cacheTimeout) {
+      console.log('🔄 Returning cached NOAA data');
+      return cached.response;
+    }
+    
+    // Check rate limit
+    const timeSinceLastCall = now - this.lastApiCall;
+    if (timeSinceLastCall < this.minApiInterval) {
+      const waitTime = this.minApiInterval - timeSinceLastCall;
+      console.log(`⏱️ Rate limiting NOAA API call, waiting ${waitTime}ms`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    
+    this.lastApiCall = Date.now();
+    
+    try {
+      const response = await fetch(url, {
+        ...options,
+        timeout: 10000 // 10 second timeout
+      });
+      
+      // Cache successful responses
+      if (response.ok) {
+        this.cache.set(cacheKey, {
+          response: response.clone(),
+          timestamp: Date.now()
+        });
+      }
+      
+      return response;
+    } catch (error) {
+      console.warn('Rate limited fetch failed:', error.message);
+      throw error;
+    }
+  }
+
   // Test connection to NOAA API
   async testConnection() {
     try {
-      // Try to fetch a simple station list to test connectivity
-      const response = await fetch(`${this.currentStationsAPI}?product=currents&station=9414290&date=latest&datum=MLLW&time_zone=gmt&units=metric&format=json`, {
-        method: 'GET',
-        timeout: 5000
-      });
-      return response.ok;
+      // Use a known valid water level station instead of current station for testing
+      const response = await this.rateLimitedFetch(`${this.currentStationsAPI}?product=water_level&station=8570283&date=latest&datum=MLLW&time_zone=gmt&units=metric&format=json`);
+      
+      if (!response.ok) {
+        console.warn('NOAA API returned status:', response.status);
+        return false;
+      }
+      
+      const data = await response.json();
+      return data && !data.error;
     } catch (error) {
-      console.error('NOAA API connection test failed:', error);
+      console.warn('NOAA API connection test failed:', error.message);
       return false;
     }
   }
@@ -163,32 +193,37 @@ class OceanCurrentsService {
   // Fetch current data for a specific station
   async fetchCurrentData(stationId, hoursBack = 24) {
     try {
+      // Use demo data immediately for Indian coastal stations
+      if (stationId.startsWith('DEMO_')) {
+        console.log(`🌊 Using demo data for Indian station: ${stationId}`);
+        return this.generateDemoCurrentData(stationId);
+      }
+
       const endDate = new Date();
       const startDate = new Date(endDate.getTime() - (hoursBack * 60 * 60 * 1000));
       
       const params = new URLSearchParams({
         product: 'currents',
         station: stationId,
-        begin_date: this.formatDate(startDate),
-        end_date: this.formatDate(endDate),
+        begin_date: startDate.toISOString().slice(0, 10).replace(/-/g, ''),
+        end_date: endDate.toISOString().slice(0, 10).replace(/-/g, ''),
         datum: 'MLLW',
         time_zone: 'gmt',
         units: 'metric',
-        format: 'xml',
-        application: 'coastal_threat_assessment'
+        format: 'json'
       });
 
-      const response = await fetch(`${this.currentStationsAPI}?${params}`);
+      const response = await this.rateLimitedFetch(`${this.currentStationsAPI}?${params}`);
       
-      if (response.ok) {
-        const xmlData = await response.text();
-        return this.parseCurrentsXML(xmlData);
-      } else {
-        // Fallback to demo data if API is unavailable
+      if (!response.ok) {
+        console.warn(`NOAA API error for station ${stationId}: ${response.status} - Using demo data`);
         return this.generateDemoCurrentData(stationId);
       }
+      
+      const data = await response.json();
+      return this.processCurrentData(data);
     } catch (error) {
-      console.error('Error fetching current data:', error);
+      console.warn(`Error fetching current data for station ${stationId}: ${error.message} - Using demo data`);
       return this.generateDemoCurrentData(stationId);
     }
   }
@@ -196,6 +231,12 @@ class OceanCurrentsService {
   // Fetch tidal data
   async fetchTidalData(stationId, days = 7) {
     try {
+      // Use demo data immediately for Indian coastal stations
+      if (stationId.startsWith('DEMO_')) {
+        console.log(`🌊 Using demo tidal data for Indian station: ${stationId}`);
+        return this.generateDemoTidalData(stationId);
+      }
+
       const endDate = new Date();
       const startDate = new Date(endDate.getTime() - (days * 24 * 60 * 60 * 1000));
       
@@ -211,16 +252,17 @@ class OceanCurrentsService {
         application: 'coastal_threat_assessment'
       });
 
-      const response = await fetch(`${this.currentStationsAPI}?${params}`);
+      const response = await this.rateLimitedFetch(`${this.currentStationsAPI}?${params}`);
       
       if (response.ok) {
         const data = await response.json();
         return this.processTidalData(data);
       } else {
+        console.warn(`NOAA Tidal API error for station ${stationId}:`, response.status);
         return this.generateDemoTidalData(stationId);
       }
     } catch (error) {
-      console.error('Error fetching tidal data:', error);
+      console.warn('Error fetching tidal data:', error.message);
       return this.generateDemoTidalData(stationId);
     }
   }

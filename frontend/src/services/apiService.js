@@ -113,8 +113,8 @@ class CTASApiService {
     return this.fetchAPI('/noaa/stations');
   }
 
-  async getCurrentThreats(stationId = 'cb0102') {
-    return this.fetchAPI(`/noaa/threats/${stationId}`);
+  async getCurrentThreats(lat = 36.9667, lon = -76.1167) {
+    return this.fetchAPI(`/threats/current?lat=${lat}&lon=${lon}`);
   }
 
   // Enhanced NOAA Services with your API token

@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Lock, User, Eye, EyeOff, UserPlus, ArrowLeft, Building, Phone, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import { useDispatch } from 'react-redux';
 import { registerUser } from '../store/slices/authSlice';
+import { useAuth } from '../store/hooks';
 
 const Register = ({ onBack }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [input, setInput] = useState({
@@ -17,6 +19,13 @@ const Register = ({ onBack }) => {
     role: "viewer", // Default role
     organization: "",
   });
+
+  // Redirect already authenticated users to dashboard
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleInputChange = (e) => {
     setInput({

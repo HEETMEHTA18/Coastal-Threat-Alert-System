@@ -1,20 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Lock, Eye, EyeOff, LogIn, ArrowLeft } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import { useDispatch } from 'react-redux';
 import { loginUser } from '../store/slices/authSlice';
+import { useAuth } from '../store/hooks';
 
 const Login = ({ onBack }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAuthenticated } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [input, setInput] = useState({
     email: "",
     password: "",
   });
+
+  // Redirect already authenticated users to dashboard
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleInputChange = (e) => {
     setInput({
@@ -111,24 +120,24 @@ const Login = ({ onBack }) => {
       </div>
 
       {/* Main Container - Perfectly Centered */}
-      <div className="relative z-10 w-full max-w-md mx-auto">
+      <div className="relative z-10 w-full max-w-md mx-auto px-4">
         {/* Header Section */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center space-x-4 mb-6">
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/25 transform hover:scale-105 transition-transform duration-300">
-              <span className="text-white text-3xl">🌊</span>
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="flex items-center justify-center space-x-4 mb-4 sm:mb-6">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/25 transform hover:scale-105 transition-transform duration-300">
+              <span className="text-white text-2xl sm:text-3xl">🌊</span>
             </div>
             <div>
-              <h1 className="text-white text-4xl font-bold tracking-tight">CTAS</h1>
-              <p className="text-blue-300/80 text-sm">Coastal Threat Alert System</p>
+              <h1 className="text-white text-3xl sm:text-4xl font-bold tracking-tight">CTAS</h1>
+              <p className="text-blue-300/80 text-xs sm:text-sm">Coastal Threat Alert System</p>
             </div>
           </div>
-          <h2 className="text-3xl font-bold text-white mb-3 tracking-tight">Welcome Back</h2>
-          <p className="text-blue-200/80 text-base">Sign in to access your coastal monitoring dashboard</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 sm:mb-3 tracking-tight">Welcome Back</h2>
+          <p className="text-blue-200/80 text-sm sm:text-base">Sign in to access your coastal monitoring dashboard</p>
         </div>
 
         {/* Login Form Container */}
-        <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl shadow-black/20 transform hover:scale-[1.01] transition-all duration-300">
+        <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-white/20 shadow-2xl shadow-black/20 transform hover:scale-[1.01] transition-all duration-300">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email Input */}
             <div className="space-y-3">
@@ -142,7 +151,7 @@ const Login = ({ onBack }) => {
                   name="email"
                   value={input.email}
                   onChange={handleInputChange}
-                  className="w-full px-5 py-4 bg-slate-800/80 border border-slate-600/50 rounded-2xl text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400/50 focus:bg-slate-700/80 transition-all duration-200 text-base"
+                  className="w-full px-5 py-4 sm:py-4 bg-slate-800/80 border border-slate-600/50 rounded-2xl text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400/50 focus:bg-slate-700/80 transition-all duration-200 text-base min-h-[56px] touch-manipulation"
                   placeholder="Enter your email address"
                   required
                 />
@@ -162,14 +171,15 @@ const Login = ({ onBack }) => {
                   name="password"
                   value={input.password}
                   onChange={handleInputChange}
-                  className="w-full px-5 py-4 bg-slate-800/80 border border-slate-600/50 rounded-2xl text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400/50 focus:bg-slate-700/80 transition-all duration-200 text-base pr-14"
+                  className="w-full px-5 py-4 bg-slate-800/80 border border-slate-600/50 rounded-2xl text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400/50 focus:bg-slate-700/80 transition-all duration-200 text-base pr-14 min-h-[56px] touch-manipulation"
                   placeholder="Enter your password"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-300 hover:text-white transition-colors p-1 hover:bg-slate-600/50 rounded-lg"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-300 hover:text-white transition-colors p-3 hover:bg-slate-600/50 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -181,7 +191,7 @@ const Login = ({ onBack }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-3 text-base shadow-lg"
+              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-3 text-base shadow-lg min-h-[56px] touch-manipulation"
             >
               {loading ? (
                 <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

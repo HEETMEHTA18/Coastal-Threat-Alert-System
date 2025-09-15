@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
@@ -9,7 +9,7 @@ import LogoutPage, { LogoutSuccessPage } from './components/LogoutPage';
 import ThemeProvider from './components/ThemeProvider';
 import { useUI, useAuth } from './store/hooks';
 import { setCurrentView, setAppLoading } from './store/slices/uiSlice';
-import { initializeAuth, setDemoUser } from './store/slices/authSlice';
+import { initializeAuth, setDemoUser, logoutUser } from './store/slices/authSlice';
 import { useInternetConnectivity } from './hooks/useConnectivity';
 
 // ProtectedRoute component to handle authentication
@@ -52,7 +52,19 @@ function AppContent() {
   // Initialize internet connectivity monitoring
   useInternetConnectivity();
 
-  console.log('🌊 CTAS App rendering with Redux...', { user, isAuthenticated, loading: loading.app });
+  // Debug: Only log when authentication state changes
+  const prevAuthState = useRef({ user, isAuthenticated, loading: loading.app });
+  useEffect(() => {
+    const hasChanged = 
+      prevAuthState.current.user !== user ||
+      prevAuthState.current.isAuthenticated !== isAuthenticated ||
+      prevAuthState.current.loading !== loading.app;
+    
+    if (hasChanged) {
+      console.log('🌊 CTAS Auth state changed:', { user, isAuthenticated, loading: loading.app });
+      prevAuthState.current = { user, isAuthenticated, loading: loading.app };
+    }
+  }, [user, isAuthenticated, loading.app]);
 
   // Initialize app on load
   useEffect(() => {
@@ -121,7 +133,10 @@ function AppContent() {
           <ProtectedRoute>
             <LogoutPage 
               user={user} 
-              onConfirmLogout={() => navigate('/logout-success')} 
+              onConfirmLogout={() => {
+                dispatch(logoutUser());
+                navigate('/logout-success');
+              }} 
               onCancel={() => navigate('/dashboard')} 
             />
           </ProtectedRoute>

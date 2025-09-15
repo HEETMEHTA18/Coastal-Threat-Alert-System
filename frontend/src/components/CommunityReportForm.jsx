@@ -6,6 +6,9 @@ import {
 } from 'lucide-react';
 
 const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
+  console.log('🚀 CommunityReportForm component mounted');
+  console.log('Props:', { onClose: !!onClose, onSubmit: !!onSubmit, initialData: !!initialData });
+  
   const [formData, setFormData] = useState({
     reportType: initialData?.reportType || 'weather',
     severity: initialData?.severity || 'medium',
@@ -48,6 +51,31 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
   const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
   const [gettingLocation, setGettingLocation] = useState(false);
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        onClose && onClose();
+      }
+    };
+    
+    document.addEventListener('keydown', handleEscape);
+    
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [onClose]);
   const fileInputRef = useRef(null);
 
   const reportTypes = [
@@ -175,8 +203,24 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
 
   // Submit form
   const handleSubmit = async () => {
-    if (!validateForm()) return;
-
+    console.log('🔄 Submit button clicked');
+    console.log('Current form data:', formData);
+    
+    if (!validateForm()) {
+      console.log('❌ Form validation failed');
+      console.log('Validation errors:', errors);
+      console.log('Form data for debugging:', {
+        title: formData.title,
+        description: formData.description,
+        location: formData.location,
+        contactName: formData.contactInfo.name,
+        contactPhone: formData.contactInfo.phone,
+        severity: formData.severity
+      });
+      return;
+    }
+    
+    console.log('✅ Form validation passed, proceeding with submission');
     setIsSubmitting(true);
     try {
       // Create form data with file uploads
@@ -197,29 +241,58 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
       });
 
       // Send to backend API
-      const response = await fetch('/api/community-reports', {
+      console.log('🚀 Sending data to backend...');
+      console.log('URL:', 'http://localhost:8000/api/community-reports');
+      console.log('FormData contents:', Array.from(formDataToSubmit.entries()));
+      
+      const response = await fetch('http://localhost:8000/api/community-reports', {
         method: 'POST',
         body: formDataToSubmit,
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response ok:', response.ok);
+
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('❌ Server error response:', errorData);
         throw new Error(errorData.message || 'Failed to submit report');
       }
 
       const result = await response.json();
+      console.log('✅ Success response:', result);
+      
+      // Call onSubmit immediately to update the reports list
+      if (onSubmit) onSubmit(result.report);
       
       // Show success message
       setShowSuccess(true);
 
       setTimeout(() => {
-        if (onSubmit) onSubmit(result.report);
         if (onClose) onClose();
       }, 3000);
 
     } catch (error) {
       console.error('Submission error:', error);
-      alert('Failed to submit report. Please try again.');
+      let errorMessage = 'Failed to submit report. Please try again.';
+      
+      if (error.message.includes('Network Error') || error.message.includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message.includes('validation')) {
+        errorMessage = 'Please check all required fields and try again.';
+      } else if (error.message.includes('Database')) {
+        errorMessage = 'Database error. Please contact support if this continues.';
+      }
+      
+      // Show error message to user
+      setErrors({
+        submit: errorMessage
+      });
+      
+      // Clear error after 5 seconds
+      setTimeout(() => {
+        setErrors({});
+      }, 5000);
     } finally {
       setIsSubmitting(false);
     }
@@ -264,8 +337,24 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
   // Success state
   if (showSuccess) {
     return (
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-50">
-        <div className="bg-gray-800 rounded-xl p-8 max-w-md w-full mx-4 text-center">
+      <div 
+        className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-[100000] p-4"
+        style={{ 
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 100000
+        }}
+      >
+        <div 
+          className="bg-gray-800 rounded-xl p-8 max-w-md w-full text-center border border-gray-600 shadow-2xl"
+          style={{
+            transform: 'translate3d(0, 0, 0)',
+            backfaceVisibility: 'hidden'
+          }}
+        >
           <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-8 h-8 text-green-400" />
           </div>
@@ -290,8 +379,30 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-50 overflow-y-auto">
-      <div className="bg-gray-800 rounded-xl max-w-4xl w-full mx-4 my-8">
+    <div 
+      className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-[100000] p-4"
+      style={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 100000
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose && onClose();
+        }
+      }}
+    >
+      <div 
+        className="bg-gray-800 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-gray-600 shadow-2xl"
+        onClick={e => e.stopPropagation()}
+        style={{
+          transform: 'translate3d(0, 0, 0)',
+          backfaceVisibility: 'hidden'
+        }}
+      >
         {/* Header */}
         <div className="bg-gray-700 px-6 py-4 rounded-t-xl border-b border-gray-600">
           <div className="flex items-center justify-between">
@@ -329,7 +440,7 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
           </div>
         </div>
 
-        <div className="p-6 max-h-[80vh] overflow-y-auto">
+        <div className="p-6 max-h-[75vh] overflow-y-auto">
           {/* Step 1: Report Type and Basic Details */}
           {currentStep === 1 && (
             <div className="space-y-6">
@@ -816,6 +927,14 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
 
         {/* Footer with navigation buttons */}
         <div className="bg-gray-700 px-6 py-4 rounded-b-xl border-t border-gray-600">
+          {/* Error Display */}
+          {errors.submit && (
+            <div className="mb-4 flex items-center space-x-2 text-red-400 bg-red-500/10 px-4 py-3 rounded-lg border border-red-500/20">
+              <AlertTriangle className="w-5 h-5" />
+              <span className="text-sm">{errors.submit}</span>
+            </div>
+          )}
+          
           <div className="flex justify-between">
             <button
               onClick={() => setCurrentStep(prev => Math.max(1, prev - 1))}
@@ -828,7 +947,10 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
             <div className="flex space-x-3">
               {currentStep < 3 ? (
                 <button
-                  onClick={() => setCurrentStep(prev => prev + 1)}
+                  onClick={() => {
+                    console.log('📝 Moving to next step:', currentStep + 1);
+                    setCurrentStep(prev => prev + 1);
+                  }}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
                 >
                   Next

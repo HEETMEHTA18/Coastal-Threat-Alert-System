@@ -1,9 +1,20 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { ChevronRight, Play, BarChart3, Shield, Users, Globe, AlertTriangle, Waves, Zap, Award, TrendingUp, MapPin, LogIn, UserPlus } from 'lucide-react';
+import { useAuth } from '../store/hooks';
+import { useNavigate } from 'react-router-dom';
 
 const LandingPage = ({ onGetStarted, onLogin, onRegister }) => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [hoveredCard, setHoveredCard] = useState(null);
   const [currentStatIndex, setCurrentStatIndex] = useState(0);
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const features = [
     {
@@ -102,20 +113,22 @@ const LandingPage = ({ onGetStarted, onLogin, onRegister }) => {
             </div>
             <span className="text-white font-bold text-xl sm:text-2xl">CTAS</span>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-3">
             <button 
               onClick={onLogin || onGetStarted}
-              className="bg-white/10 backdrop-blur-lg text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg border border-white/20 hover:bg-white/20 transition-all duration-300 text-sm sm:text-base"
+              className="bg-white/10 backdrop-blur-lg text-white px-4 py-3 sm:px-4 sm:py-2 rounded-lg border border-white/20 hover:bg-white/20 transition-all duration-300 text-sm sm:text-base min-h-[44px] flex items-center justify-center touch-manipulation"
               aria-label="Sign in to your account"
             >
-              Sign In
+              <LogIn className="w-4 h-4 mr-2 sm:mr-1" />
+              <span className="hidden xs:inline">Sign In</span>
             </button>
             <button 
               onClick={onRegister || onGetStarted}
-              className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:shadow-lg transition-all duration-300 text-sm sm:text-base"
+              className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-3 sm:px-4 sm:py-2 rounded-lg hover:shadow-lg transition-all duration-300 text-sm sm:text-base min-h-[44px] flex items-center justify-center touch-manipulation"
               aria-label="Create new account"
             >
-              Sign Up
+              <UserPlus className="w-4 h-4 mr-2 sm:mr-1" />
+              <span className="hidden xs:inline">Sign Up</span>
             </button>
           </div>
         </div>
@@ -157,29 +170,29 @@ const LandingPage = ({ onGetStarted, onLogin, onRegister }) => {
             
             <button 
               onClick={onLogin || onGetStarted}
-              className="group bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-bold text-base sm:text-lg shadow-2xl hover:shadow-cyan-500/25 transform hover:scale-105 transition-all duration-300 flex items-center space-x-2 focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+              className="group w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-2xl hover:shadow-cyan-500/25 transform hover:scale-105 transition-all duration-300 flex items-center justify-center space-x-2 focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900 min-h-[56px] touch-manipulation"
               aria-label="Sign in to existing account"
             >
-              <LogIn className="w-4 h-4 sm:w-5 sm:h-5" />
+              <LogIn className="w-5 h-5" />
               <span>Sign In</span>
             </button>
             
             <button 
-              className="group bg-white/10 backdrop-blur-lg text-white px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-bold text-base sm:text-lg border border-white/30 hover:bg-white/20 transition-all duration-300 flex items-center space-x-2 focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-slate-900"
+              className="group w-full sm:w-auto bg-white/10 backdrop-blur-lg text-white px-8 py-4 rounded-2xl font-bold text-lg border border-white/30 hover:bg-white/20 transition-all duration-300 flex items-center justify-center space-x-2 focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-slate-900 min-h-[56px] touch-manipulation"
               aria-label="Watch a demonstration of the system"
             >
-              <Play className="w-4 h-4 sm:w-5 sm:h-5" />
+              <Play className="w-5 h-5" />
               <span>Watch Demo</span>
             </button>
           </div>
         </div>
 
         {/* Feature Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 mb-16 sm:mb-20 px-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 mb-16 sm:mb-20 px-4">
           {features.map((feature, index) => (
             <div
               key={index}
-              className="group relative bg-white/5 backdrop-blur-lg rounded-2xl p-6 sm:p-8 border border-white/10 hover:bg-white/10 transition-all duration-500 transform hover:scale-105 hover:-translate-y-2 cursor-pointer"
+              className="group relative bg-white/5 backdrop-blur-lg rounded-2xl p-6 sm:p-8 border border-white/10 hover:bg-white/10 transition-all duration-500 transform hover:scale-105 hover:-translate-y-2 cursor-pointer touch-manipulation"
               onMouseEnter={() => handleCardHover(index)}
               onMouseLeave={handleCardLeave}
               onFocus={() => handleCardHover(index)}
@@ -199,7 +212,7 @@ const LandingPage = ({ onGetStarted, onLogin, onRegister }) => {
                 {feature.title}
               </h3>
               
-              <p className="text-gray-300 leading-relaxed text-sm sm:text-base group-hover:text-white transition-colors mb-4">
+              <p className="text-gray-300 leading-relaxed text-sm sm:text-base group-hover:text-white transition-colors mb-4 sm:mb-6">
                 {feature.description}
               </p>
 

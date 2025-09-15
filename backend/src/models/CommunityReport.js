@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const communityReportSchema = new mongoose.Schema({
   reportId: {
     type: String,
-    required: true,
     unique: true
   },
   reportType: {

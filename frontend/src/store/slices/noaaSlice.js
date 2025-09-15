@@ -80,16 +80,17 @@ export const fetchCurrentsData = createAsyncThunk(
 
 export const fetchThreatAssessment = createAsyncThunk(
   'noaa/fetchThreatAssessment',
-  async (stationId = 'cb0201', { rejectWithValue }) => {
+  async (params = {}, { rejectWithValue }) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/noaa/threats/${stationId}`);
+      const { lat = 19.076, lon = 72.8777 } = params;
+      const response = await fetch(`${API_BASE_URL}/threats/current?lat=${lat}&lon=${lon}`);
       
       if (!response.ok) {
         return rejectWithValue('Failed to fetch threat assessment');
       }
       
       const data = await response.json();
-      return data;
+      return data.data; // Return the data object from the response
     } catch (error) {
       return rejectWithValue(error.message);
     }

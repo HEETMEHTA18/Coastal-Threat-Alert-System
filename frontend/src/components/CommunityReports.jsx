@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../services/axiosInstance';
 import { 
   Plus, Filter, Search, MapPin, Clock, User, AlertTriangle, 
   CheckCircle, X, Eye, MessageSquare, Phone, Share2, Users,
   Wind, Waves, Navigation, Thermometer, Send, Bell, 
-  ExternalLink, Map, MoreVertical, Edit, Trash2
+  ExternalLink, Map, MoreVertical, Edit, Trash2, Camera
 } from 'lucide-react';
 import CommunityReportForm from './CommunityReportForm';
 
@@ -21,13 +21,30 @@ const CommunityReports = () => {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [sending, setSending] = useState({});
+
+  // Handle keyboard events
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (selectedReport) {
+          setSelectedReport(null);
+        } else if (showReportForm) {
+          setShowReportForm(false);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedReport, showReportForm]);
 
   // Fetch reports from API
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const response = await axios.get('/api/community-reports');
+        const response = await axios.get('/community-reports');
         if (response.data.success) {
           setReports(response.data.reports);
           setFilteredReports(response.data.reports);
@@ -36,88 +53,86 @@ const CommunityReports = () => {
         }
       } catch (error) {
         console.error('Error fetching reports:', error);
+        setError(error.message);
+        
+        // Only use fallback sample data if API fails
+        const sampleReports = [
+          {
+            id: 'report_1',
+            type: 'weather',
+            severity: 'high',
+            status: 'active',
+            title: 'Unusual Wave Patterns',
+            description: 'Noticed unusually high waves near Bandra coastline. Waves are reaching 3-4 meters.',
+            location: 'Bandra West, Mumbai',
+            coordinates: { lat: 19.0596, lng: 72.8295 },
+            contactInfo: {
+              name: 'Priya Sharma',
+              phone: '+91-9876543210',
+              organization: 'Local Citizen'
+            },
+            weatherConditions: {
+              windSpeed: '45',
+              waveHeight: '3-4',
+              temperature: '28',
+              visibility: '5'
+            },
+            timestamp: new Date('2025-08-30T13:51:10'),
+            media: [],
+            smsAlertsSent: 127,
+            acknowledgedBy: null,
+            category: 'weather'
+          },
+          {
+            id: 'report_2',
+            type: 'coastal',
+            severity: 'critical',
+            status: 'investigating',
+            title: 'Coastal Path Damage',
+            description: 'The walking path along Worli sea face has developed cracks and some sections are unstable.',
+            location: 'Worli Sea Face, Mumbai',
+            coordinates: { lat: 19.0176, lng: 72.8162 },
+            contactInfo: {
+              name: 'Rajesh Kumar',
+              phone: '+91-9876543211',
+              organization: 'Municipal Inspector'
+            },
+            timestamp: new Date('2025-08-30T11:51:10'),
+            media: [],
+            smsAlertsSent: 89,
+            acknowledgedBy: 'Emergency Response Team',
+            category: 'infrastructure'
+          },
+          {
+            id: 'report_3',
+            type: 'marine',
+            severity: 'medium',
+            status: 'resolved',
+            title: 'Fishing Boat Engine Failure',
+            description: 'Local fishing boat experiencing engine problems approximately 2km from shore.',
+            location: 'Arabian Sea, Off Mumbai Coast',
+            coordinates: { lat: 18.9388, lng: 72.8354 },
+            contactInfo: {
+              name: 'Captain Mohammed Ali',
+              phone: '+91-9876543212',
+              organization: 'Mumbai Fishermen Association'
+            },
+            timestamp: new Date('2025-08-30T09:30:00'),
+            media: [],
+            smsAlertsSent: 45,
+            acknowledgedBy: 'Coast Guard',
+            category: 'marine'
+          }
+        ];
+
+        setReports(sampleReports);
+        setFilteredReports(sampleReports);
       } finally {
         setLoading(false);
       }
     };
     
     fetchReports();
-    
-    // Fallback sample data if API fails
-    const sampleReports = [
-      {
-        id: 'report_1',
-        type: 'weather',
-        severity: 'high',
-        status: 'active',
-        title: 'Unusual Wave Patterns',
-        description: 'Noticed unusually high waves near Bandra coastline. Waves are reaching 3-4 meters.',
-        location: 'Bandra West, Mumbai',
-        coordinates: { lat: 19.0596, lng: 72.8295 },
-        contactInfo: {
-          name: 'Priya Sharma',
-          phone: '+91-9876543210',
-          organization: 'Local Citizen'
-        },
-        weatherConditions: {
-          windSpeed: '45',
-          waveHeight: '3-4',
-          temperature: '28',
-          visibility: '5'
-        },
-        timestamp: new Date('2025-08-30T13:51:10'),
-        media: [],
-        smsAlertsSent: 127,
-        acknowledgedBy: null,
-        category: 'weather'
-      },
-      {
-        id: 'report_2',
-        type: 'coastal',
-        severity: 'critical',
-        status: 'investigating',
-        title: 'Coastal Path Damage',
-        description: 'The walking path along Worli sea face has developed cracks and some sections are unstable.',
-        location: 'Worli Sea Face, Mumbai',
-        coordinates: { lat: 19.0176, lng: 72.8162 },
-        contactInfo: {
-          name: 'Rajesh Kumar',
-          phone: '+91-9876543211',
-          organization: 'Municipal Inspector'
-        },
-        timestamp: new Date('2025-08-30T11:51:10'),
-        media: [],
-        smsAlertsSent: 89,
-        acknowledgedBy: 'Emergency Response Team',
-        category: 'infrastructure'
-      },
-      {
-        id: 'report_3',
-        type: 'marine',
-        severity: 'medium',
-        status: 'resolved',
-        title: 'Fishing Boat Engine Failure',
-        description: 'Local fishing boat experiencing engine problems approximately 2km from shore.',
-        location: 'Arabian Sea, Off Mumbai Coast',
-        coordinates: { lat: 18.9388, lng: 72.8354 },
-        contactInfo: {
-          name: 'Captain Mohammed Ali',
-          phone: '+91-9876543212',
-          organization: 'Mumbai Fishermen Association'
-        },
-        timestamp: new Date('2025-08-30T09:30:00'),
-        media: [],
-        smsAlertsSent: 45,
-        acknowledgedBy: 'Coast Guard',
-        category: 'marine'
-      }
-    ];
-
-    setTimeout(() => {
-      setReports(sampleReports);
-      setFilteredReports(sampleReports);
-      setLoading(false);
-    }, 1000);
   }, []);
 
   // Filter and search reports
@@ -126,7 +141,7 @@ const CommunityReports = () => {
 
     // Apply filters
     if (filters.type !== 'all') {
-      filtered = filtered.filter(report => report.type === filters.type);
+      filtered = filtered.filter(report => report.reportType === filters.type);
     }
     if (filters.severity !== 'all') {
       filtered = filtered.filter(report => report.severity === filters.severity);
@@ -147,7 +162,7 @@ const CommunityReports = () => {
     if (filters.timeRange !== 'all') {
       const timeLimit = timeRanges[filters.timeRange];
       filtered = filtered.filter(report => 
-        now - new Date(report.timestamp) <= timeLimit
+        now - new Date(report.createdAt) <= timeLimit
       );
     }
 
@@ -207,16 +222,27 @@ const CommunityReports = () => {
     return colors[status] || 'text-gray-400 bg-gray-500/20';
   };
 
-  const handleReportSubmit = (newReport) => {
+  const handleReportSubmit = async (newReport) => {
     // New report already saved to database by the form
-    // Just add it to the local state
-    setReports(prev => [newReport, ...prev]);
-    setFilteredReports(prev => [newReport, ...prev]);
+    // Add it to the local state immediately for instant UI update
+    console.log('📝 Adding new report to local state:', newReport);
+    
+    // Ensure the report has the right date format
+    const reportWithDate = {
+      ...newReport,
+      timestamp: newReport.createdAt || newReport.timestamp,
+      createdAt: newReport.createdAt || newReport.timestamp
+    };
+    
+    setReports(prev => [reportWithDate, ...prev]);
+    setFilteredReports(prev => [reportWithDate, ...prev]);
+    
+    console.log('✅ Report added to local state successfully');
   };
 
   const handleStatusChange = async (reportId, newStatus) => {
     try {
-      await axios.patch(`/api/community-reports/${reportId}/status`, { 
+      await axios.patch(`/community-reports/${reportId}/status`, { 
         status: newStatus
       });
       
@@ -529,7 +555,7 @@ const CommunityReports = () => {
         ) : (
           <div className="space-y-4">
             {filteredReports.map((report) => {
-              const TypeIcon = getTypeIcon(report.type);
+              const TypeIcon = getTypeIcon(report.reportType);
               return (
                 <div
                   key={report._id || report.reportId}
@@ -546,7 +572,7 @@ const CommunityReports = () => {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-start space-x-4">
                       <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${getSeverityColor(report.severity)}/20 border border-${getSeverityColor(report.severity).split('-')[1]}-500/30`}>
-                        <TypeIcon className={`w-6 h-6 ${getTypeColor(report.type)}`} />
+                        <TypeIcon className={`w-6 h-6 ${getTypeColor(report.reportType)}`} />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-2">
@@ -590,9 +616,66 @@ const CommunityReports = () => {
                             style={{ color: 'var(--text-tertiary)' }}
                           >
                             <Clock className="w-4 h-4" />
-                            <span>{report.timestamp.toLocaleString()}</span>
+                            <span>{new Date(report.createdAt || report.timestamp).toLocaleString()}</span>
                           </div>
                         </div>
+
+                        {/* Media Gallery */}
+                        {report.media && report.media.length > 0 && (
+                          <div className="mt-4">
+                            <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Attached Media ({report.media.length})
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {report.media.slice(0, 4).map((media, index) => (
+                                <div 
+                                  key={index}
+                                  className="relative w-20 h-20 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // You can add a lightbox/modal here to view full image
+                                    window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/uploads/community-reports/${media.filename}`, '_blank');
+                                  }}
+                                >
+                                  {media.mimetype.startsWith('image/') ? (
+                                    <img 
+                                      src={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/uploads/community-reports/${media.filename}`}
+                                      alt={media.originalName}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-gray-600 flex items-center justify-center">
+                                      <Camera className="w-6 h-6 text-gray-400" />
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-gray-800 flex items-center justify-center text-gray-400" style={{ display: 'none' }}>
+                                    <Camera className="w-6 h-6" />
+                                  </div>
+                                  {media.mimetype.startsWith('video/') && (
+                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                      <div className="w-6 h-6 text-white">▶</div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                              {report.media.length > 4 && (
+                                <div 
+                                  className="w-20 h-20 rounded-lg bg-gray-600/50 flex items-center justify-center cursor-pointer hover:bg-gray-600/70 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedReport(report);
+                                  }}
+                                >
+                                  <span className="text-white text-sm">+{report.media.length - 4}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
 
                         {/* SMS Alert Info */}
                         <div 
@@ -679,7 +762,7 @@ const CommunityReports = () => {
           onClose={() => setShowReportForm(false)}
           onSubmit={handleReportSubmit}
           initialData={selectedReport ? {
-            reportType: selectedReport.type,
+            reportType: selectedReport.reportType,
             severity: selectedReport.severity,
             location: selectedReport.location,
             coordinates: selectedReport.coordinates,
@@ -690,21 +773,44 @@ const CommunityReports = () => {
 
       {/* Report Detail Modal */}
       {selectedReport && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-[100000] p-4"
+          style={{ 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 100000
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelectedReport(null);
+            }
+          }}
+        >
+          <div 
+            className="bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-600 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+            style={{
+              transform: 'translate3d(0, 0, 0)',
+              backfaceVisibility: 'hidden'
+            }}
+          >
             <div className="bg-gray-700 px-6 py-4 rounded-t-xl border-b border-gray-600">
               <div className="flex items-center justify-between">
                 <h2 className="text-white text-xl font-bold">Report Details</h2>
                 <button
                   onClick={() => setSelectedReport(null)}
                   className="p-2 hover:bg-gray-600 rounded-lg transition-colors"
+                  aria-label="Close report details"
                 >
-                  <X className="w-5 h-5 text-white" />
+                  <X className="w-6 h-6 text-white" />
                 </button>
               </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-6 max-h-[75vh] overflow-y-auto">
               {/* Action buttons */}
               <div className="flex flex-wrap gap-2 mb-4">
                 <button
@@ -757,8 +863,8 @@ const CommunityReports = () => {
                 <div className="flex items-center space-x-4 mb-4">
                   <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${getSeverityColor(selectedReport.severity)}/20 border border-${getSeverityColor(selectedReport.severity).split('-')[1]}-500/30`}>
                     {(() => {
-                      const TypeIcon = getTypeIcon(selectedReport.type);
-                      return <TypeIcon className={`w-8 h-8 ${getTypeColor(selectedReport.type)}`} />;
+                      const TypeIcon = getTypeIcon(selectedReport.reportType);
+                      return <TypeIcon className={`w-8 h-8 ${getTypeColor(selectedReport.reportType)}`} />;
                     })()}
                   </div>
                   <div>
@@ -768,7 +874,7 @@ const CommunityReports = () => {
                         {selectedReport.status.replace('_', ' ').toUpperCase()}
                       </span>
                       <span className="text-gray-400 text-sm">
-                        {selectedReport.timestamp.toLocaleString()}
+                        {new Date(selectedReport.createdAt || selectedReport.timestamp).toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -881,6 +987,122 @@ const CommunityReports = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Media Gallery */}
+              {selectedReport.media && selectedReport.media.length > 0 && (
+                <div className="mt-6 bg-gray-700/50 rounded-lg p-4">
+                  <h3 className="text-white font-semibold mb-4 flex items-center space-x-2">
+                    <Camera className="w-5 h-5" />
+                    <span>Media Gallery ({selectedReport.media.length} {selectedReport.media.length === 1 ? 'item' : 'items'})</span>
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {selectedReport.media.map((mediaItem, index) => (
+                      <div key={index} className="relative group">
+                        {mediaItem.mimetype?.startsWith('image/') ? (
+                          <div className="relative cursor-pointer">
+                            <img
+                              src={`http://localhost:8000/uploads/community-reports/${mediaItem.filename}`}
+                              alt={`Report media ${index + 1}`}
+                              className="w-full h-32 object-cover rounded-lg border border-gray-600 hover:border-blue-500 transition-all duration-200"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                              onClick={() => {
+                                // Create and show full-size image modal
+                                const modal = document.createElement('div');
+                                modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+                                modal.innerHTML = `
+                                  <div class="relative max-w-4xl max-h-full">
+                                    <img src="http://localhost:8000/uploads/community-reports/${mediaItem.filename}" 
+                                         class="max-w-full max-h-full object-contain rounded-lg" 
+                                         alt="Full size image" />
+                                    <button class="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full w-8 h-8 flex items-center justify-center hover:bg-opacity-75">
+                                      ×
+                                    </button>
+                                  </div>
+                                `;
+                                modal.onclick = (e) => {
+                                  if (e.target === modal || e.target.tagName === 'BUTTON') {
+                                    document.body.removeChild(modal);
+                                  }
+                                };
+                                document.body.appendChild(modal);
+                              }}
+                            />
+                            <div className="hidden w-full h-32 bg-gray-600 rounded-lg border border-gray-600" style={{display: 'none'}}>
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Camera className="w-8 h-8 text-gray-400" />
+                                <span className="text-gray-400 text-sm ml-2">Image not found</span>
+                              </div>
+                            </div>
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <div className="bg-white bg-opacity-20 rounded-full p-2">
+                                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                  </svg>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : mediaItem.mimetype?.startsWith('video/') ? (
+                          <div className="relative cursor-pointer">
+                            <video
+                              src={`http://localhost:8000/uploads/community-reports/${mediaItem.filename}`}
+                              className="w-full h-32 object-cover rounded-lg border border-gray-600 hover:border-blue-500 transition-all duration-200"
+                              onClick={() => {
+                                // Create and show full-size video modal
+                                const modal = document.createElement('div');
+                                modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+                                modal.innerHTML = `
+                                  <div class="relative max-w-4xl max-h-full">
+                                    <video src="http://localhost:8000/uploads/community-reports/${mediaItem.filename}" 
+                                           class="max-w-full max-h-full object-contain rounded-lg" 
+                                           controls autoplay />
+                                    <button class="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full w-8 h-8 flex items-center justify-center hover:bg-opacity-75">
+                                      ×
+                                    </button>
+                                  </div>
+                                `;
+                                modal.onclick = (e) => {
+                                  if (e.target === modal || e.target.tagName === 'BUTTON') {
+                                    document.body.removeChild(modal);
+                                  }
+                                };
+                                document.body.appendChild(modal);
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center rounded-lg">
+                              <div className="bg-white bg-opacity-20 rounded-full p-3">
+                                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M8 5v14l11-7z"/>
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-full h-32 bg-gray-600 rounded-lg border border-gray-600 flex items-center justify-center">
+                            <div className="text-center">
+                              <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                              <span className="text-gray-400 text-xs">Unknown format</span>
+                            </div>
+                          </div>
+                        )}
+                        {/* File info tooltip */}
+                        <div className="absolute bottom-2 left-2 right-2 bg-black bg-opacity-70 text-white text-xs p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          {mediaItem.originalName || mediaItem.filename}
+                          {mediaItem.size && (
+                            <div className="text-gray-300">
+                              {(mediaItem.size / 1024 / 1024).toFixed(1)} MB
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               {/* SMS Notification History */}
               {selectedReport.smsAlertsSent > 0 && (
@@ -896,7 +1118,7 @@ const CommunityReports = () => {
                         <span>Initial alert</span>
                       </div>
                       <div className="text-gray-400">
-                        {selectedReport.timestamp.toLocaleString()}
+                        {new Date(selectedReport.createdAt || selectedReport.timestamp).toLocaleString()}
                       </div>
                     </div>
                     
@@ -908,7 +1130,7 @@ const CommunityReports = () => {
                           <span>Extended radius alert</span>
                         </div>
                         <div className="text-gray-400">
-                          {new Date(selectedReport.timestamp.getTime() + 1800000).toLocaleString()}
+                          {new Date(new Date(selectedReport.createdAt || selectedReport.timestamp).getTime() + 1800000).toLocaleString()}
                         </div>
                       </div>
                     )}
@@ -920,7 +1142,7 @@ const CommunityReports = () => {
                           <span>Follow-up alert</span>
                         </div>
                         <div className="text-gray-400">
-                          {new Date(selectedReport.timestamp.getTime() + 3600000).toLocaleString()}
+                          {new Date(new Date(selectedReport.createdAt || selectedReport.timestamp).getTime() + 3600000).toLocaleString()}
                         </div>
                       </div>
                     )}

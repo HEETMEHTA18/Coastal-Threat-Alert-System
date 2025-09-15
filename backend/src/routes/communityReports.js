@@ -48,7 +48,19 @@ const upload = multer({
 // POST /api/community-reports - Create new report
 router.post('/', upload.array('media', 10), async (req, res) => {
   try {
+    console.log('📝 Received community report submission');
+    console.log('Body keys:', Object.keys(req.body));
+    console.log('Files:', req.files ? req.files.length : 0);
+    console.log('Raw reportData:', req.body.reportData);
+    
     const reportData = JSON.parse(req.body.reportData);
+    console.log('Parsed reportData:', JSON.stringify(reportData, null, 2));
+    
+    // Ensure reportId is generated
+    if (!reportData.reportId) {
+      reportData.reportId = `CR_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      console.log('Generated reportId:', reportData.reportId);
+    }
     
     // Add media information if files were uploaded
     if (req.files && req.files.length > 0) {
@@ -62,7 +74,10 @@ router.post('/', upload.array('media', 10), async (req, res) => {
     }
 
     const report = new CommunityReport(reportData);
+    console.log('📄 Created report document:', report);
+    
     await report.save();
+    console.log('✅ Report saved successfully with ID:', report._id);
 
     // Send SMS alerts using SMS service
     const smsResults = await sendSMSAlerts(report);
@@ -82,7 +97,9 @@ router.post('/', upload.array('media', 10), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error creating community report:', error);
+    console.error('❌ Error creating community report:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
     
     // Clean up uploaded files if report creation failed
     if (req.files) {

@@ -11,6 +11,9 @@ class CurrentMonitorService {
     this.location = null;
     this.refreshInterval = null;
     this.listeners = [];
+    this.consecutiveErrors = 0;
+    this.maxErrors = 5; // Stop trying after 5 consecutive errors
+    this.isDisabled = false;
   }
 
   // Initialize with user location
@@ -23,14 +26,40 @@ class CurrentMonitorService {
 
   // Test connection to ocean currents service
   async testConnection() {
+    if (this.isDisabled) {
+      console.warn('Current Monitor is disabled due to repeated failures');
+      return false;
+    }
+
     try {
       const connected = await this.oceanService.testConnection();
       this.isConnected = connected;
+      
+      if (connected) {
+        this.consecutiveErrors = 0; // Reset error count on success
+      } else {
+        this.consecutiveErrors++;
+        console.warn(`NOAA API connection failed (${this.consecutiveErrors}/${this.maxErrors})`);
+        
+        if (this.consecutiveErrors >= this.maxErrors) {
+          this.isDisabled = true;
+          this.stopAutoRefresh();
+          console.warn('Current Monitor disabled due to repeated failures. Use manual refresh to re-enable.');
+        }
+      }
+      
       this.notifyListeners({ type: 'connectionStatus', connected: this.isConnected });
       return connected;
     } catch (error) {
       console.error('Current Monitor connection test failed:', error);
+      this.consecutiveErrors++;
       this.isConnected = false;
+      
+      if (this.consecutiveErrors >= this.maxErrors) {
+        this.isDisabled = true;
+        this.stopAutoRefresh();
+      }
+      
       this.notifyListeners({ type: 'connectionStatus', connected: false });
       return false;
     }
@@ -38,6 +67,11 @@ class CurrentMonitorService {
 
   // Get current conditions for user location
   async getCurrentData(lat = null, lng = null) {
+    if (this.isDisabled) {
+      console.warn('Current Monitor is disabled. Returning cached data.');
+      return this.currentData;
+    }
+
     try {
       const location = { lat: lat || this.location?.lat, lng: lng || this.location?.lng };
       
@@ -48,6 +82,7 @@ class CurrentMonitorService {
       const data = await this.oceanService.getCurrentConditions(location.lat, location.lng);
       this.currentData = data;
       this.isConnected = data.connectionStatus === 'connected';
+      this.consecutiveErrors = 0; // Reset on success
       
       this.notifyListeners({ 
         type: 'dataUpdate', 
@@ -58,9 +93,17 @@ class CurrentMonitorService {
       return data;
     } catch (error) {
       console.error('Error fetching current data:', error);
+      this.consecutiveErrors++;
       this.isConnected = false;
+      
+      if (this.consecutiveErrors >= this.maxErrors) {
+        this.isDisabled = true;
+        this.stopAutoRefresh();
+        console.warn('Current Monitor disabled due to repeated data fetch failures');
+      }
+      
       this.notifyListeners({ type: 'error', error: error.message });
-      return null;
+      return this.currentData; // Return cached data instead of null
     }
   }
 
@@ -99,13 +142,33 @@ class CurrentMonitorService {
   }
 
   // Start auto refresh
-  startAutoRefresh(intervalMs = 60000) { // 1 minute default
+  startAutoRefresh(intervalMs = 300000) { // Increased to 5 minutes to reduce API load
     this.stopAutoRefresh();
+    
+    if (this.isDisabled) {
+      console.warn('Cannot start auto refresh - Current Monitor is disabled');
+      return;
+    }
+    
     this.refreshInterval = setInterval(async () => {
-      if (this.location) {
+      if (this.location && !this.isDisabled) {
         await this.getCurrentData();
       }
     }, intervalMs);
+  }
+
+  // Manual refresh to re-enable service
+  async manualRefresh() {
+    console.log('Manual refresh triggered - re-enabling Current Monitor');
+    this.isDisabled = false;
+    this.consecutiveErrors = 0;
+    
+    const success = await this.testConnection();
+    if (success && this.location) {
+      await this.getCurrentData();
+      this.startAutoRefresh(); // Restart auto refresh if successful
+    }
+    return success;
   }
 
   // Stop auto refresh

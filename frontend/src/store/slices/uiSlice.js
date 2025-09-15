@@ -1,6 +1,26 @@
 // UI slice for managing interface state and user preferences
 import { createSlice } from '@reduxjs/toolkit';
 
+// Load theme from localStorage or use defaults
+const loadThemeFromStorage = () => {
+  try {
+    const storedTheme = localStorage.getItem('ctas_theme');
+    if (storedTheme) {
+      return JSON.parse(storedTheme);
+    }
+  } catch (error) {
+    console.error('Error loading theme from localStorage:', error);
+  }
+  
+  return {
+    mode: 'dark', // 'light', 'dark', 'auto'
+    accentColor: 'blue', // 'blue', 'cyan', 'green', 'orange', 'red'
+    fontSize: 'medium', // 'small', 'medium', 'large'
+    animations: true,
+    soundEffects: true,
+  };
+};
+
 const initialState = {
   // Current view management
   currentView: 'landing', // 'landing', 'auth', 'dashboard'
@@ -38,14 +58,8 @@ const initialState = {
     mapWidget: false,
   },
   
-  // Theme and display preferences
-  theme: {
-    mode: 'dark', // 'light', 'dark', 'auto'
-    accentColor: 'blue', // 'blue', 'cyan', 'green', 'orange', 'red'
-    fontSize: 'medium', // 'small', 'medium', 'large'
-    animations: true,
-    soundEffects: true,
-  },
+  // Theme and display preferences (loaded from localStorage)
+  theme: loadThemeFromStorage(),
   
   // Notification preferences
   notifications: {

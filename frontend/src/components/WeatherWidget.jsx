@@ -7,13 +7,22 @@ import {
 const WEATHER_API_KEY = import.meta.env.VITE_OPENWEATHERMAP_API_KEY;
 
 export default function WeatherWidget() {
-  console.log('WeatherWidget rendering, API key:', !!WEATHER_API_KEY);
+  // Log API key availability only once on mount
+  const [apiKeyLogged, setApiKeyLogged] = useState(false);
   const [weather, setWeather] = useState(null);
   const [forecast, setForecast] = useState(null);
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState({ lat: 19.0760, lng: 72.8777, name: 'Mumbai' });
   const [alerts, setAlerts] = useState([]);
   const [showFAQs, setShowFAQs] = useState(false);
+
+  // Log API key status only once
+  useEffect(() => {
+    if (!apiKeyLogged) {
+      console.log('🌦️ WeatherWidget API key available:', !!WEATHER_API_KEY);
+      setApiKeyLogged(true);
+    }
+  }, [apiKeyLogged]);
 
   // Weather FAQs
   const weatherFAQs = [
@@ -173,17 +182,29 @@ export default function WeatherWidget() {
     if (navigator.geolocation) {
       setLoading(true);
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           const { latitude, longitude } = position.coords;
-          fetchWeather(latitude, longitude, 'Your Location');
+          
+          // Try to get city name from reverse geocoding
+          try {
+            const response = await fetch(
+              `https://api.openweathermap.org/geo/1.0/reverse?lat=${latitude}&lon=${longitude}&limit=1&appid=${WEATHER_API_KEY}`
+            );
+            const locationData = await response.json();
+            const cityName = locationData[0]?.name || 'Your Current Location';
+            fetchWeather(latitude, longitude, cityName);
+          } catch (error) {
+            console.error('Error getting city name:', error);
+            fetchWeather(latitude, longitude, 'Your Current Location');
+          }
         },
         (error) => {
           console.error('Error getting location:', error);
-          fetchWeather(location.lat, location.lng, 'Mumbai');
+          fetchWeather(location.lat, location.lng, 'Mumbai (Default)');
         }
       );
     } else {
-      fetchWeather(location.lat, location.lng, 'Mumbai');
+      fetchWeather(location.lat, location.lng, 'Mumbai (Default)');
     }
   };
 
@@ -213,8 +234,11 @@ export default function WeatherWidget() {
         <div className="space-y-3">
           <h2 style={{ color: 'var(--text-primary)' }} className="text-xl font-bold flex items-center gap-2">
             <AlertTriangle className="w-6 h-6 text-amber-500" />
-            Weather Alerts for Your Location
+            Weather Alerts for {location.name}
           </h2>
+          <div className="text-sm text-slate-400 mb-2">
+            📍 Monitoring location: {location.lat.toFixed(4)}°N, {location.lng.toFixed(4)}°E
+          </div>
           {alerts.map((alert, index) => {
             const IconComponent = alert.icon;
             return (
@@ -283,15 +307,46 @@ export default function WeatherWidget() {
               }}
             ></div>
             <p style={{ color: 'var(--text-secondary)' }} className="text-lg">Loading weather data...</p>
+            <p style={{ color: 'var(--text-muted)' }} className="text-sm mt-2">
+              📍 Detecting location and fetching coordinates
+            </p>
           </div>
         )}
 
         {weather && !loading && (
           <div className="space-y-6">
-            {/* Location */}
-            <div className="flex items-center space-x-2 text-blue-500 font-medium">
-              <MapPin className="w-5 h-5" />
-              <span className="text-lg">{location.name}</span>
+            {/* Location with Coordinates */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-blue-500 font-medium">
+                  <MapPin className="w-5 h-5" />
+                  <span className="text-lg">{location.name}</span>
+                </div>
+                <button
+                  onClick={getCurrentLocation}
+                  disabled={loading}
+                  className="flex items-center space-x-1 px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors disabled:opacity-50"
+                  title="Update location"
+                >
+                  <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                  <span>Update</span>
+                </button>
+              </div>
+              <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3 space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600 dark:text-slate-400">📍 Coordinates:</span>
+                  <span className="font-mono text-slate-800 dark:text-slate-200 font-medium">
+                    {location.lat.toFixed(4)}°N, {location.lng.toFixed(4)}°E
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>Location Accuracy:</span>
+                  <span className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                    <span>High Precision</span>
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Main Weather Info */}

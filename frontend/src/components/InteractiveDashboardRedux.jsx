@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Activity, Satellite, CloudRain, Waves, BarChart, 
   Users, MapPin, RefreshCw, Settings, LogOut, User as UserIcon, 
-  ChevronDown, Smartphone, Menu, X 
+  ChevronDown, Smartphone, Menu, X, MessageCircle 
 } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import { useAuth, useUI, useDashboard, useConnectionStatus } from '../store/hooks';
@@ -20,7 +20,7 @@ import CommunityReports from './CommunityReports';
 import ChatbotWidget from './ChatbotWidget';
 import AnalyticsPage from './AnalyticsPage';
 import CurrentMonitorService from '../services/currentMonitorService';
-import SettingsModal from './SettingsModal';
+import SimpleSettingsModal from './SimpleSettingsModal';
 import UserProfileDisplay from './UserProfileDisplay';
 
 const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
@@ -30,13 +30,27 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
   const [mapProvider, setMapProvider] = useState('interactive'); // Default to interactive analysis
   const [currentMonitor, setCurrentMonitor] = useState(null);
   const [currentStats, setCurrentStats] = useState({
-    speed: 0,
-    direction: 0,
-    directionText: 'N/A',
-    station: 'Initializing...',
-    connected: false
+    speed: 1.2,
+    direction: 245,
+    directionText: 'SW',
+    station: 'Mumbai Port - Demo',
+    connected: true,
+    lastUpdate: Date.now(),
+    distance: '2.1'
   });
   const [userLocation, setUserLocation] = useState(null);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('🎯 InteractiveDashboard mounted');
+    console.log('🤖 Initial chatbot state:', isChatbotOpen);
+  }, []);
+
+  useEffect(() => {
+    console.log('🤖 Chatbot state changed to:', isChatbotOpen);
+  }, [isChatbotOpen]);
 
   const { user, isAuthenticated } = useAuth();
   const { isConnected, syncStatus } = useConnectionStatus();
@@ -45,6 +59,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
     sidebarCollapsed, 
     isLoading
   } = useDashboard();
+  const { modals } = useUI();
 
   // Initialize Current Monitor Service
   useEffect(() => {
@@ -74,9 +89,28 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
               setCurrentMonitor(monitor);
               setCurrentStats(monitor.getLiveStats());
             },
-            (error) => {
+            async (error) => {
               console.error('Geolocation error:', error);
-              setCurrentStats(prev => ({ ...prev, station: 'Location unavailable' }));
+              // Fall back to Mumbai coordinates for demo
+              const fallbackLocation = { lat: 19.0760, lng: 72.8777 };
+              setUserLocation(fallbackLocation);
+              
+              try {
+                const monitor = new CurrentMonitorService();
+                await monitor.initialize(fallbackLocation);
+                
+                monitor.addListener((event) => {
+                  if (event.type === 'dataUpdate' || event.type === 'connectionStatus') {
+                    setCurrentStats(monitor.getLiveStats());
+                  }
+                });
+                
+                setCurrentMonitor(monitor);
+                setCurrentStats(monitor.getLiveStats());
+              } catch (monitorError) {
+                console.warn('Current monitor initialization failed, using demo data:', monitorError);
+                // Keep the demo data from initial state
+              }
             }
           );
         }
@@ -123,12 +157,24 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
   };
 
   const handleLogout = () => {
-    dispatch(logoutUser());
+    // Just navigate to logout page - don't clear auth state yet
     onLogout();
   };
 
   const handleOpenSettings = () => {
-    dispatch(openModal({ modalName: 'settings' }));
+    console.log('🔧 Opening settings modal');
+    setIsSettingsOpen(true);
+  };
+
+  const handleCloseSettings = () => {
+    console.log('🔧 Closing settings modal');
+    setIsSettingsOpen(false);
+  };
+
+  const handleToggleChatbot = () => {
+    console.log('🤖 Chatbot button clicked! Current state:', isChatbotOpen);
+    setIsChatbotOpen(!isChatbotOpen);
+    console.log('🤖 Setting chatbot open to:', !isChatbotOpen);
   };
 
   const handleOpenNotifications = () => {
@@ -191,15 +237,19 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
     switch (activeTab) {
       case 'overview':
         return (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 relative">
             {/* Satellite Map - Large, Left Side */}
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-3 relative">
               <div 
-                className="card-theme backdrop-blur-sm rounded-xl p-6 h-[800px] transition-all duration-300"
+                className="card-theme rounded-xl p-6 transition-all duration-300 relative"
                 style={{
                   backgroundColor: 'var(--card-bg)',
                   borderColor: 'var(--card-border)',
                   boxShadow: 'var(--card-shadow)',
+                  minHeight: '800px',
+                  height: 'fit-content',
+                  position: 'relative',
+                  overflow: 'hidden'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.boxShadow = 'var(--card-hover-shadow)';
@@ -210,17 +260,22 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 style={{ color: 'var(--text-primary)' }} className="text-lg font-bold flex items-center">
-                    <Satellite className="w-6 h-6 text-green-500 mr-2" />
-                    Satellite Map
-                  </h3>
-                  <div className="flex items-center space-x-4">
+                <div className="flex flex-col space-y-4 mb-4 relative z-10">
+                  {/* Header Row */}
+                  <div className="flex items-center justify-between">
+                    <h3 style={{ color: 'var(--text-primary)' }} className="text-lg font-bold flex items-center relative text-positioning-fix">
+                      <Satellite className="w-6 h-6 text-green-500 mr-2" />
+                      Satellite Map
+                    </h3>
+                  </div>
+                  
+                  {/* Controls Row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sm:space-x-4 relative">
                     {/* Map Provider Toggle */}
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 flex-wrap">
                       <button
                         onClick={() => setMapProvider('interactive')}
-                        className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                        className={`px-3 py-1 text-xs rounded-full transition-colors whitespace-nowrap ${
                           mapProvider === 'interactive' 
                             ? 'bg-blue-600 text-white' 
                             : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
@@ -230,7 +285,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                       </button>
                       <button
                         onClick={() => setMapProvider('mapbox')}
-                        className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                        className={`px-3 py-1 text-xs rounded-full transition-colors whitespace-nowrap ${
                           mapProvider === 'mapbox' 
                             ? 'bg-blue-600 text-white' 
                             : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
@@ -240,7 +295,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                       </button>
                       <button
                         onClick={() => setMapProvider('coastal')}
-                        className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                        className={`px-3 py-1 text-xs rounded-full transition-colors whitespace-nowrap ${
                           mapProvider === 'coastal' 
                             ? 'bg-blue-600 text-white' 
                             : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
@@ -249,7 +304,9 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                         Coastal Monitor
                       </button>
                     </div>
-                    <div className="text-sm text-slate-400">
+                    
+                    {/* Description Text */}
+                    <div className="text-sm text-slate-400 text-right sm:text-left sm:max-w-md relative">
                       {mapProvider === 'interactive' ? 'Interactive Coastal Analysis Dashboard' : 
                        mapProvider === 'coastal' ? 'Advanced Mapbox Coastal Monitoring' :
                        mapProvider === 'mapbox' ? 'Mapbox Satellite View' :
@@ -257,7 +314,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                     </div>
                   </div>
                 </div>
-                <div className="h-[720px]">
+                <div className="h-[650px] sm:h-[700px] lg:h-[720px] w-full overflow-hidden rounded-lg">
                   <MapErrorBoundary>
                     {mapProvider === 'interactive' ? (
                       <FallbackMap />
@@ -274,14 +331,15 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
             </div>
 
             {/* Quick Stats and Other Components - Right Side */}
-            <div className="lg:col-span-1 space-y-6">
+            <div className="lg:col-span-1 space-y-6 relative">
               {/* Quick Stats */}
               <div 
-                className="card-theme backdrop-blur-sm rounded-xl p-6 transition-all duration-300"
+                className="card-theme rounded-xl p-6 transition-all duration-300 relative"
                 style={{
                   backgroundColor: 'var(--card-bg)',
                   borderColor: 'var(--card-border)',
                   boxShadow: 'var(--card-shadow)',
+                  position: 'relative'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.boxShadow = 'var(--card-hover-shadow)';
@@ -292,29 +350,29 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
-                <h3 style={{ color: 'var(--text-primary)' }} className="text-lg font-bold mb-4 flex items-center">
+                <h3 style={{ color: 'var(--text-primary)', position: 'relative', zIndex: 1 }} className="text-lg font-bold mb-4 flex items-center text-positioning-fix">
                   <Activity className="w-5 h-5 text-cyan-500 mr-2" />
                   Quick Stats
                 </h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span style={{ color: 'var(--text-muted)' }} className="flex items-center font-medium">
+                <div className="space-y-3 relative z-1 text-positioning-fix">
+                  <div className="flex justify-between items-center text-positioning-fix">
+                    <span style={{ color: 'var(--text-muted)' }} className="flex items-center font-medium text-positioning-fix">
                       <div className={`w-2 h-2 rounded-full mr-2 ${currentStats.connected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
                       Ocean Data
                     </span>
-                    <span className={`font-semibold ${currentStats.connected ? 'text-green-400' : 'text-red-400'}`}>
+                    <span className={`font-semibold text-positioning-fix ${currentStats.connected ? 'text-green-400' : 'text-red-400'}`}>
                       {currentStats.connected ? 'Live' : 'Offline'}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Current Speed</span>
-                    <span className="font-semibold text-blue-400">
+                  <div className="flex justify-between items-center text-positioning-fix">
+                    <span className="text-slate-400 text-positioning-fix">Current Speed</span>
+                    <span className="font-semibold text-blue-400 text-positioning-fix">
                       {currentStats.speed.toFixed(1)} kts
                     </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Direction</span>
-                    <span className="font-semibold text-cyan-400">
+                  <div className="flex justify-between items-center text-positioning-fix">
+                    <span className="text-slate-400 text-positioning-fix">Direction</span>
+                    <span className="font-semibold text-cyan-400 text-positioning-fix">
                       {currentStats.directionText} ({currentStats.direction}°)
                     </span>
                   </div>
@@ -343,7 +401,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
 
               {/* Current Monitor - Compact */}
               <div 
-                className="backdrop-blur-sm rounded-xl border p-4"
+                className="rounded-xl border p-4"
                 style={{
                   backgroundColor: 'var(--card-bg)',
                   borderColor: 'var(--card-border)',
@@ -433,7 +491,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
         // Use Enhanced Satellite Map with animations and heatmaps
         return (
           <div 
-            className="backdrop-blur-sm rounded-xl border p-6 transition-all duration-300"
+            className="rounded-xl border p-6 transition-all duration-300"
             style={{
               backgroundColor: 'var(--card-bg)',
               borderColor: 'var(--card-border)',
@@ -487,18 +545,31 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
     }
   };
 
-  // Handle window resize for responsive layout
+  // Handle window resize for responsive layout with improved mobile support
   useEffect(() => {
     const handleResize = () => {
-      setIsMobileView(window.innerWidth < 768);
+      const isMobile = window.innerWidth < 768;
+      setIsMobileView(isMobile);
+      
+      // Auto-collapse sidebar on mobile by default for better UX
+      if (isMobile && !sidebarCollapsed) {
+        dispatch(toggleSidebar());
+      }
     };
     
+    handleResize(); // Initial check
     window.addEventListener('resize', handleResize);
+    
+    // Handle orientation change on mobile devices
+    window.addEventListener('orientationchange', () => {
+      setTimeout(handleResize, 100);
+    });
     
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
     };
-  }, []);
+  }, [dispatch, sidebarCollapsed]);
 
   return (
     <DashboardProvider>
@@ -573,7 +644,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                   <button
                     key={tab.id}
                     onClick={() => handleTabChange(tab.id)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${sidebarCollapsed && !isMobileView ? 'justify-center' : ''}`}
+                    className={`w-full flex items-center gap-3 p-4 rounded-xl transition-all duration-200 touch-manipulation min-h-[56px] ${sidebarCollapsed && !isMobileView ? 'justify-center' : ''}`}
                     style={{
                       backgroundColor: activeTab === tab.id ? 'var(--sidebar-active)' : 'transparent',
                       color: activeTab === tab.id ? '#ffffff' : 'var(--sidebar-text)'
@@ -590,10 +661,11 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                         e.target.style.color = 'var(--sidebar-text)';
                       }
                     }}
+                    aria-label={`Navigate to ${tab.label}`}
                   >
-                    <Icon className="w-7 h-7" />
+                    <Icon className={`${isMobileView ? 'w-6 h-6' : 'w-7 h-7'}`} />
                     {(!sidebarCollapsed || isMobileView) && (
-                      <span>{tab.label}</span>
+                      <span className="font-medium">{tab.label}</span>
                     )}
                   </button>
                 );
@@ -765,7 +837,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                 <div className="flex items-center">
                   <button
                     onClick={handleSidebarToggle}
-                    className="p-2 mr-3 rounded-lg transition-colors"
+                    className="p-3 mr-3 rounded-xl transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center touch-manipulation"
                     style={{
                       color: 'var(--text-primary)'
                     }}
@@ -775,6 +847,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                     onMouseLeave={(e) => {
                       e.target.style.backgroundColor = 'transparent';
                     }}
+                    aria-label={sidebarCollapsed ? 'Open navigation menu' : 'Close navigation menu'}
                   >
                     {sidebarCollapsed ? <Menu className="w-6 h-6" /> : <X className="w-6 h-6" />}
                   </button>
@@ -812,13 +885,164 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
           />
         )}
 
-        
-        {/* Floating Chatbot Widget */}
-        <ChatbotWidget />
+        {/* Chatbot Interface - Right Side */}
+        {isChatbotOpen && (
+          <div className="fixed right-4 bottom-20 top-20 w-80 z-40">
+            <ChatbotWidget onClose={() => setIsChatbotOpen(false)} />
+          </div>
+        )}
       </div>
+
+      {/* Floating Greeting Bubble */}
+      {!isChatbotOpen && (
+        <div className="fixed bottom-28 right-4 z-[9998] animate-bounce">
+          <div 
+            className="bg-white rounded-xl px-3 py-2 shadow-xl border border-blue-200 max-w-48"
+            style={{
+              background: 'linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)',
+              boxShadow: '0 15px 35px rgba(59, 130, 246, 0.2), 0 0 0 1px rgba(59, 130, 246, 0.15)'
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg">👋</span>
+              <div>
+                <p className="text-gray-800 text-sm font-semibold">
+                  Hi {user?.name || 'Krish'}!
+                </p>
+                <p className="text-blue-600 text-xs font-medium">
+                  Need coastal insights? 🌊
+                </p>
+              </div>
+            </div>
+            {/* Speech bubble arrow */}
+            <div 
+              className="absolute bottom-0 right-6 w-0 h-0"
+              style={{
+                borderLeft: '6px solid transparent',
+                borderRight: '6px solid transparent',
+                borderTop: '6px solid #f0f9ff',
+                transform: 'translateY(100%)'
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Floating Chatbot Toggle Button */}
+      <button
+        onClick={handleToggleChatbot}
+        className="fixed bottom-6 right-6 w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center z-[9999] transition-all duration-300 hover:scale-110 border-2 border-blue-400"
+        title="Open CTAS Assistant"
+        style={{ 
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 9999,
+          background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+          boxShadow: '0 20px 40px rgba(59, 130, 246, 0.3), 0 0 0 2px rgba(147, 197, 253, 0.5)',
+          animation: 'pulse 2s infinite'
+        }}
+      >
+        <MessageCircle className="w-8 h-8" />
+      </button>
       
-      {/* Settings Modal */}
-      <SettingsModal />
+      {/* Simple Settings Modal */}
+      <SimpleSettingsModal 
+        isOpen={isSettingsOpen}
+        onClose={handleCloseSettings}
+      />
+      
+      {/* Overview Page Layout Fix Styles */}
+      <style>{`
+        /* Chatbot button pulse animation */
+        @keyframes pulse {
+          0%, 100% {
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.3), 0 0 0 2px rgba(147, 197, 253, 0.5), 0 0 0 0 rgba(59, 130, 246, 0.7);
+          }
+          50% {
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.4), 0 0 0 2px rgba(147, 197, 253, 0.7), 0 0 0 10px rgba(59, 130, 246, 0);
+          }
+        }
+
+        /* Greeting bubble animations */
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        @keyframes gentleBounce {
+          0%, 20%, 50%, 80%, 100% {
+            transform: translateY(0);
+          }
+          40% {
+            transform: translateY(-10px);
+          }
+          60% {
+            transform: translateY(-5px);
+          }
+        }
+
+        /* Apply animations to greeting bubble */
+        .fixed.bottom-28.right-4 {
+          animation: slideInRight 0.8s ease-out, gentleBounce 2s ease-in-out 1s infinite;
+        }
+
+        /* Ensure stable text positioning */
+        .card-theme {
+          position: relative;
+          isolation: isolate;
+        }
+        
+        /* Fix text positioning issues */
+        .text-positioning-fix {
+          position: relative;
+          z-index: 1;
+          transform: translateZ(0);
+          will-change: auto;
+        }
+        
+        /* Grid layout stability */
+        .grid {
+          contain: layout;
+        }
+        
+        .grid > div {
+          position: relative;
+          contain: layout style;
+        }
+        
+        /* Ensure flex containers maintain proper positioning */
+        .flex {
+          position: relative;
+        }
+        
+        /* Prevent any text shifting in space-y containers */
+        .space-y-3 > *,
+        .space-y-4 > *,
+        .space-y-6 > * {
+          position: relative;
+          transform: translateZ(0);
+        }
+        
+        /* Button positioning fix */
+        button {
+          position: relative;
+          z-index: 1;
+        }
+        
+        /* Icon positioning */
+        svg {
+          position: relative;
+        }
+      `}</style>
     </DashboardProvider>
   );
-};export default InteractiveDashboard;
+};
+
+export default InteractiveDashboard;

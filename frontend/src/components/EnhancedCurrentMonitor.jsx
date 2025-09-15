@@ -18,24 +18,18 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
   const { isConnected, noaaConnection } = useConnectionStatus();
   const { dashboard } = useUI();
 
-  // Debug logging
-  console.log('EnhancedCurrentMonitor - Debug Info:', {
-    data,
-    isLoading,
-    error,
-    hasData,
-    latest,
-    station,
-    'data.observations': data?.observations,
-    'data.latest': data?.latest,
-    'data keys': Object.keys(data || {}),
-    'latest observation': latest,
-    'station_info': data?.station_info
-  });
-
-  // Also log the raw currentsData to see what's actually stored
-  const { currentsData } = useNoaaData();
-  console.log('Raw currentsData from Redux:', currentsData);
+  // Debug logging - only when data changes
+  const prevData = useRef();
+  useEffect(() => {
+    if (prevData.current !== data && data) {
+      console.log('🌊 Current Monitor - Data updated:', {
+        hasData,
+        latest: latest?.time,
+        station: station?.name
+      });
+      prevData.current = data;
+    }
+  }, [data, hasData, latest, station]);
 
   // Auto-refresh based on user preferences
   useEffect(() => {
@@ -59,14 +53,14 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
     // Then fetch new data
     setTimeout(() => {
       dispatch(fetchCurrentsData('cb0201'));
-      dispatch(fetchThreatAssessment('cb0201'));
+      dispatch(fetchThreatAssessment({ lat: 36.9667, lon: -76.1167 })); // Chesapeake Bay coordinates
     }, 100);
   }, [dispatch]);
 
   const handleManualRefresh = () => {
     console.log('Manual refresh triggered - fetching cb0201 data');
     dispatch(fetchCurrentsData('cb0201'));
-    dispatch(fetchThreatAssessment('cb0201'));
+    dispatch(fetchThreatAssessment({ lat: 36.9667, lon: -76.1167 })); // Chesapeake Bay coordinates
   };
 
   const formatSpeed = (speed) => {

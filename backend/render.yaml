@@ -16,7 +16,7 @@ services:
       - key: JWT_SECRET
         sync: false # Set this in Render dashboard
       - key: CORS_ORIGIN
-        value: https://your-frontend.vercel.app
+        value: https://coastal-threat-alert-system-two.vercel.app
       - key: OPENWEATHER_API_KEY
         sync: false # Set this in Render dashboard
       - key: NOAA_API_KEY
