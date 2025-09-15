@@ -64,6 +64,7 @@ app.use(morgan('combined'));
 
 // Static file serving for uploaded media
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // API Routes
 app.use('/api/auth', require('./routes/auth'));
