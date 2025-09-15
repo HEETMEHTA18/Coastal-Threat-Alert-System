@@ -253,9 +253,14 @@ admin-guide-private.md
 # ==========================================
 # User uploaded files (might contain sensitive content)
 uploads/
+backend/uploads/
 public/uploads/
 static/uploads/
 user-content/
+
+# Specific community report uploads
+uploads/community-reports/
+backend/uploads/community-reports/
 
 # ==========================================
 # PYTHON FILES (if any)
