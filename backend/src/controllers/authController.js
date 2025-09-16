@@ -163,13 +163,7 @@ const login = async (req, res) => {
       });
     }
 
-    // Check if user is active
-    if (user.status !== 'active') {
-      return res.status(401).json({
-        success: false,
-        message: `Account is ${user.status}. Please contact administrator.`
-      });
-    }
+
 
     // Check password
     const isPasswordValid = await user.comparePassword(password);

@@ -9,75 +9,19 @@ const router = express.Router();
 // Initialize SMS service
 const smsService = new SMSService();
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../uploads/community-reports');
-    try {
-      await fs.mkdir(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    } catch (error) {
-      cb(error);
-    }
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, `${uniqueSuffix}-${file.originalname}`);
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-    files: 10 // Maximum 10 files
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|mp4|mov|avi|webm/;
-    const extName = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimeType = allowedTypes.test(file.mimetype);
-    
-    if (mimeType && extName) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only image and video files are allowed'));
-    }
-  }
-});
-
-// POST /api/community-reports - Create new report
-router.post('/', upload.array('media', 10), async (req, res) => {
+// POST /api/community-reports - Create new report (no uploads)
+router.post('/', async (req, res) => {
   try {
     console.log('📝 Received community report submission');
-    console.log('Body keys:', Object.keys(req.body));
-    console.log('Files:', req.files ? req.files.length : 0);
-    console.log('Raw reportData:', req.body.reportData);
-    
-    const reportData = JSON.parse(req.body.reportData);
-    console.log('Parsed reportData:', JSON.stringify(reportData, null, 2));
-    
-    // Ensure reportId is generated
+
+    const reportData = typeof req.body.reportData === 'string' ? JSON.parse(req.body.reportData) : req.body.reportData;
     if (!reportData.reportId) {
       reportData.reportId = `CR_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      console.log('Generated reportId:', reportData.reportId);
     }
-    
-    // Add media information if files were uploaded
-    if (req.files && req.files.length > 0) {
-      reportData.media = req.files.map(file => ({
-        filename: file.filename,
-        originalName: file.originalname,
-        mimetype: file.mimetype,
-        size: file.size,
-        path: file.path
-      }));
-    }
-
+    // Remove any media field if present
+    if (reportData.media) delete reportData.media;
     const report = new CommunityReport(reportData);
-    console.log('📄 Created report document:', report);
-    
     await report.save();
-    console.log('✅ Report saved successfully with ID:', report._id);
 
     // Send SMS alerts using SMS service
     const smsResults = await sendSMSAlerts(report);
@@ -101,16 +45,7 @@ router.post('/', upload.array('media', 10), async (req, res) => {
     console.error('Error details:', error.message);
     console.error('Error stack:', error.stack);
     
-    // Clean up uploaded files if report creation failed
-    if (req.files) {
-      req.files.forEach(async (file) => {
-        try {
-          await fs.unlink(file.path);
-        } catch (unlinkError) {
-          console.error('Error deleting file:', unlinkError);
-        }
-      });
-    }
+
 
     res.status(500).json({
       success: false,

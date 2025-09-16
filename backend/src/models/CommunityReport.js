@@ -123,17 +123,7 @@ const communityReportSchema = new mongoose.Schema({
       default: true
     }
   },
-  media: [{
-    filename: String,
-    originalName: String,
-    mimetype: String,
-    size: Number,
-    path: String,
-    uploadedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
+
   smsAlerts: {
     sent: {
       type: Number,

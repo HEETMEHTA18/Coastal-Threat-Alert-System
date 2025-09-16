@@ -37,7 +37,7 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
       evacuationNeeded: false,
       infrastructureDamage: false
     },
-    media: [],
+  // media: [],
     notifications: {
       smsRadius: 5, // km
       urgentAlert: false,
@@ -76,7 +76,7 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
       document.removeEventListener('keydown', handleEscape);
     };
   }, [onClose]);
-  const fileInputRef = useRef(null);
+  // const fileInputRef = useRef(null);
 
   const reportTypes = [
     { id: 'weather', label: 'Severe Weather', icon: Wind, description: 'Storm, high winds, heavy rain' },
@@ -143,33 +143,7 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
     }
   };
 
-  // Handle file upload
-  const handleFileUpload = (event) => {
-    const files = Array.from(event.target.files);
-    const validFiles = files.filter(file => {
-      const isValid = file.size <= 10 * 1024 * 1024; // 10MB limit
-      const isImage = file.type.startsWith('image/');
-      const isVideo = file.type.startsWith('video/');
-      return isValid && (isImage || isVideo);
-    });
 
-    setFormData(prev => ({
-      ...prev,
-      media: [...prev.media, ...validFiles.map(file => ({
-        file,
-        preview: URL.createObjectURL(file),
-        type: file.type.startsWith('image/') ? 'image' : 'video'
-      }))]
-    }));
-  };
-
-  // Remove uploaded file
-  const removeFile = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      media: prev.media.filter((_, i) => i !== index)
-    }));
-  };
 
   // Validate form
   const validateForm = () => {
@@ -223,31 +197,14 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
     console.log('✅ Form validation passed, proceeding with submission');
     setIsSubmitting(true);
     try {
-      // Create form data with file uploads
-      const formDataToSubmit = new FormData();
-      
-      // Add report ID and timestamp
-      const completeFormData = {
-        ...formData,
-        media: undefined // Remove media from JSON, will be added separately
-      };
-      
-      // Prepare data for submission
-      formDataToSubmit.append('reportData', JSON.stringify(completeFormData));
 
-      // Add media files if any
-      formData.media.forEach((media) => {
-        formDataToSubmit.append('media', media.file);
-      });
-
-      // Send to backend API
-      console.log('🚀 Sending data to backend...');
-      console.log('URL:', 'http://localhost:8000/api/community-reports');
-      console.log('FormData contents:', Array.from(formDataToSubmit.entries()));
-      
+      // Prepare data for submission (no files)
+      const completeFormData = { ...formData };
+      delete completeFormData.media;
       const response = await fetch('http://localhost:8000/api/community-reports', {
         method: 'POST',
-        body: formDataToSubmit,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportData: completeFormData }),
       });
 
       console.log('📡 Response status:', response.status);
@@ -569,60 +526,7 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
               )}
 
               {/* Media Upload */}
-              <div>
-                <label className="block text-white font-semibold mb-3">Photos/Videos (Optional)</label>
-                <div className="border-2 border-dashed border-gray-600 rounded-lg p-6">
-                  <div className="text-center">
-                    <Camera className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-                    >
-                      Upload Media
-                    </button>
-                    <p className="text-gray-400 text-sm mt-2">
-                      Upload photos or videos to help illustrate the situation (Max 10MB each)
-                    </p>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      accept="image/*,video/*"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                  </div>
-                  
-                  {/* Media Preview */}
-                  {formData.media.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                      {formData.media.map((media, index) => (
-                        <div key={index} className="relative group">
-                          {media.type === 'image' ? (
-                            <img
-                              src={media.preview}
-                              alt={`Upload ${index + 1}`}
-                              className="w-full h-24 object-cover rounded-lg"
-                            />
-                          ) : (
-                            <video
-                              src={media.preview}
-                              className="w-full h-24 object-cover rounded-lg"
-                            />
-                          )}
-                          <button
-                            onClick={() => removeFile(index)}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+
             </div>
           )}
 
@@ -909,10 +813,7 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
                     <p className="text-gray-400">SMS Radius:</p>
                     <p className="text-white font-medium">{formData.notifications.smsRadius} km</p>
                   </div>
-                  <div>
-                    <p className="text-gray-400">Media Attachments:</p>
-                    <p className="text-white font-medium">{formData.media.length} files</p>
-                  </div>
+
                 </div>
 
                 {/* Preview SMS Message */}
@@ -925,8 +826,8 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
           )}
         </div>
 
-        {/* Footer with navigation buttons */}
-        <div className="bg-gray-700 px-6 py-4 rounded-b-xl border-t border-gray-600">
+  {/* Sticky Footer with navigation buttons */}
+  <div className="bg-gray-700 px-6 py-4 rounded-b-xl border-t border-gray-600 sticky bottom-0 left-0 w-full z-20">
           {/* Error Display */}
           {errors.submit && (
             <div className="mb-4 flex items-center space-x-2 text-red-400 bg-red-500/10 px-4 py-3 rounded-lg border border-red-500/20">
