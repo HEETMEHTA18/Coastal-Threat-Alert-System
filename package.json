@@ -1,0 +1,19 @@
+{
+  "name": "coastal-threat-alert-system",
+  "version": "1.0.0",
+  "description": "Coastal Threat Alert System - Full Stack Application",
+  "scripts": {
+    "install-backend": "cd backend && npm install",
+    "install-ai": "cd ai-models && pip install -r requirements.txt",
+    "build": "npm run install-backend && npm run install-ai",
+    "start": "node backend/server.js & cd ai-models && uvicorn api.main:app --host 0.0.0.0 --port 8000",
+    "start-backend": "cd backend && node server.js",
+    "start-ai": "cd ai-models && uvicorn api.main:app --host 0.0.0.0 --port 8000"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HEETMEHTA18/Coastal-Threat-Alert-System"
+  },
+  "author": "HEETMEHTA18",
+  "license": "MIT"
+}

@@ -7,8 +7,8 @@ services:
     name: ctas-backend
     runtime: node
     plan: free
-    buildCommand: npm install --prefix backend
-    startCommand: node backend/server.js
+    buildCommand: npm run build
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
