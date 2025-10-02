@@ -109,6 +109,33 @@ app.use('/api/ai', require('./routes/ai'));
 // Server-side proxy for OpenWeather to avoid exposing API key to clients
 app.use('/api/openweather', require('./routes/openWeatherProxy'));
 
+// Direct predict_alert endpoint (for frontend compatibility)
+app.post('/api/predict_alert', async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    
+    // Mock response - replace with actual AI service call when Python service is running
+    const mockPrediction = {
+      type: 'prediction',
+      payload: {
+        rain_predicted: Math.random() > 0.7,
+        rain_probability: Math.round(Math.random() * 30),
+        temperature_predicted: Math.round(20 + Math.random() * 15),
+        humidity_predicted: Math.round(40 + Math.random() * 40),
+        water_level_predicted: Math.round((1 + Math.random() * 2) * 10) / 10,
+        location: { latitude, longitude }
+      }
+    };
+    
+    res.json(mockPrediction);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Prediction service temporarily unavailable',
+      details: error.message
+    });
+  }
+});
+
 // Global Error Handler - Must be last middleware
 app.use((err, req, res, next) => {
   console.error('🚨 Global Error:', err.stack);

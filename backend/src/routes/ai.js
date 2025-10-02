@@ -1,6 +1,33 @@
 const express = require('express');
 const router = express.Router();
 
+// Predict alert endpoint - proxy to Python AI service or return mock data
+router.post('/predict_alert', async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    
+    // Mock response for now - replace with actual AI service call
+    const mockPrediction = {
+      type: 'prediction',
+      payload: {
+        rain_predicted: Math.random() > 0.7,
+        rain_probability: Math.round(Math.random() * 30),
+        temperature_predicted: Math.round(20 + Math.random() * 15),
+        humidity_predicted: Math.round(40 + Math.random() * 40),
+        water_level_predicted: Math.round((1 + Math.random() * 2) * 10) / 10,
+        location: { latitude, longitude }
+      }
+    };
+    
+    res.json(mockPrediction);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Prediction service temporarily unavailable',
+      details: error.message
+    });
+  }
+});
+
 // Lightweight chat responder.
 // For production, replace with a call to your AI provider or Python service.
 router.post('/chat', async (req, res) => {

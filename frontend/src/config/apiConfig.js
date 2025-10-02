@@ -4,11 +4,10 @@ const getApiUrls = () => {
   
   if (isProduction) {
     return {
-      // Replace these with your actual Render service URLs
-      NODE_API: import.meta.env.VITE_NODE_API_URL || 'https://your-render-service.onrender.com',
-      AI_API: import.meta.env.VITE_AI_API_URL || 'https://your-render-service.onrender.com',
-      // OR for separate AI service:
-      // AI_API: import.meta.env.VITE_AI_API_URL || 'https://ctas-ai-models.onrender.com',
+      // Your actual Render service URLs
+      NODE_API: import.meta.env.VITE_NODE_API_URL || 'https://coastal-threat-alert-system-ctq6.onrender.com',
+      AI_API: import.meta.env.VITE_AI_API_URL || 'https://coastal-threat-alert-system-ctq6.onrender.com',
+      // If you create separate AI service, update AI_API URL
     };
   }
   
