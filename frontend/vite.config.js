@@ -9,12 +9,10 @@ export default defineConfig({
     strictPort: true,
     // Enable history API fallback for client-side routing
     historyApiFallback: true,
-    // Allow the API proxy target to be controlled via environment variable
-    // so the frontend can proxy to a backend on a non-standard port during
-    // development (e.g. when the Python backend runs on 8001).
+    // Development proxy configuration
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:8000',
+        target: 'http://localhost:3001',
         changeOrigin: true,
       },
       '/predict_alert': {

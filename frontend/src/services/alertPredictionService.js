@@ -1,8 +1,8 @@
 import axios from "axios";
+import { ENDPOINTS } from "../config/apiConfig.js";
 
-const API_URL = "/predict_alert"; // Use relative URL for Vite proxy
-// Direct backend fallback (useful if Vite proxy isn't forwarding POSTs correctly)
-const BACKEND_DIRECT = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/$/, '') + '/predict_alert';
+const API_URL = "/predict_alert"; // Use relative URL for Vite proxy in development
+const BACKEND_DIRECT = ENDPOINTS.PREDICT_ALERT; // Production-ready endpoint
 
 /**
  * Calls the unified alert prediction API with the given data.
