@@ -56,9 +56,9 @@ After deployment, your services will be available at:
 
 ## 📝 Environment Variables Needed
 ```
-OPENAI_API_KEY=sk-or-v1-...
-OPENWEATHER_API_KEY=00845c44932451b7f6339b12bde4b000
-MONGODB_URI=mongodb+srv://...
+OPENAI_API_KEY=your-openai-api-key
+OPENWEATHER_API_KEY=your-openweather-api-key
+MONGODB_URI=mongodb+srv://your-connection-string
 JWT_SECRET=your-jwt-secret
 NODE_ENV=production
 ```

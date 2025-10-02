@@ -7,8 +7,8 @@ services:
     name: ctas-backend
     runtime: node
     plan: free
-    buildCommand: cd backend && npm install
-    startCommand: cd backend && node server.js
+    buildCommand: npm install --prefix backend
+    startCommand: node backend/server.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -27,8 +27,8 @@ services:
     name: ctas-ai-backend
     runtime: python
     plan: free
-    buildCommand: cd ai-models && pip install -r requirements.txt
-    startCommand: cd ai-models && python -m uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install -r ai-models/requirements.txt
+    startCommand: cd ai-models && uvicorn api.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PORT
         value: 10000

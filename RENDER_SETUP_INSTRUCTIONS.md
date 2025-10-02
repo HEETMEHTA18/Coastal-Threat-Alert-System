@@ -9,7 +9,7 @@ Go to your Render dashboard and select your existing service, then:
 #### A. Build & Deploy Settings
 - **Build Command**: 
   ```bash
-  npm install && cd ai-models && pip install -r requirements.txt
+  npm install --prefix backend && pip install -r ai-models/requirements.txt
   ```
 - **Start Command**:
   ```bash
@@ -19,8 +19,8 @@ Go to your Render dashboard and select your existing service, then:
 #### B. Environment Variables
 Add these to your service:
 ```
-OPENAI_API_KEY=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
-OPENWEATHER_API_KEY=00845c44932451b7f6339b12bde4b000
+OPENAI_API_KEY=your-openai-api-key
+OPENWEATHER_API_KEY=your-openweather-api-key
 MONGODB_URI=mongodb+srv://your-connection-string
 JWT_SECRET=your-jwt-secret
 NODE_ENV=production
