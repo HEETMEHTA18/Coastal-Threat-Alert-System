@@ -107,7 +107,9 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:5175",
-        "http://localhost:5000"
+        "http://localhost:5000",
+        "https://coastal-threat-alert-system-two.vercel.app",
+        "https://coastal-threat-alert-system-ctq6.onrender.com"
     ],
     allow_credentials=True,
     allow_methods=["*"],

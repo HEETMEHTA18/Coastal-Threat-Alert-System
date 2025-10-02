@@ -16,7 +16,7 @@ __pycache__/
 .venv/
 venv/
 *.pyc
-*.pkl
+# *.pkl  # Commented out - we need alert_model.pkl for production
 
 ## Logs
 *.log
@@ -361,8 +361,9 @@ env/
 *.pt
 *.pth
 *.onnx
-ai-models/*.pkl
+# ai-models/*.pkl  # Allow alert_model.pkl for production
 ai-models/models/*.pkl
+!ai-models/alert_model.pkl  # Explicitly allow this file
 
 # Large datasets
 *.csv
