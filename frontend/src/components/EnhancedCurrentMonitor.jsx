@@ -46,32 +46,98 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
     };
   }, [dispatch, dashboard.autoRefresh, dashboard.refreshInterval]);
 
-  // Initial data fetch
+  // Initial data fetch - prefer browser geolocation then fallback to station coords
+  // Auto-retry logic with exponential backoff
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
+  
   useEffect(() => {
     // Clear any old cached data first
     dispatch(clearStationData());
-    // Then fetch new data
-    setTimeout(() => {
-      dispatch(fetchCurrentsData('cb0201'));
-      dispatch(fetchThreatAssessment({ lat: 36.9667, lon: -76.1167 })); // Chesapeake Bay coordinates
-    }, 100);
+
+    const fetchWithCoords = (lat, lon) => {
+      console.log('🌊 Fetching current data for coords:', lat, lon);
+      dispatch(fetchCurrentsData({ stationId: 'cb0201', lat, lon }));
+      dispatch(fetchThreatAssessment({ lat, lon }));
+      setRetryCount(0); // Reset retry count on successful fetch
+    };
+
+    // Attempt to use browser geolocation (user permission required)
+    if (navigator && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          console.log('✅ Geolocation obtained:', latitude, longitude);
+          fetchWithCoords(latitude, longitude);
+        },
+        (err) => {
+          console.warn('⚠️ Geolocation failed or denied:', err.message);
+          // fallback to station coords immediately
+          fetchWithCoords(36.9667, -76.1167);
+        },
+        { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 } // Less strict settings for faster response
+      );
+    } else {
+      // No geolocation support - use default coords
+      console.log('📍 No geolocation support, using default coords');
+      fetchWithCoords(36.9667, -76.1167);
+    }
   }, [dispatch]);
 
+  // Auto-retry logic for failed connections
+  useEffect(() => {
+    if (error && retryCount < maxRetries && !isLoading) {
+      const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff: 1s, 2s, 4s (max 10s)
+      console.log(`⏱️ Retrying connection in ${retryDelay/1000}s (attempt ${retryCount + 1}/${maxRetries})`);
+      
+      const retryTimer = setTimeout(() => {
+        console.log('🔄 Retry attempt:', retryCount + 1);
+        setRetryCount(prev => prev + 1);
+        dispatch(fetchCurrentsData({ stationId: 'cb0201', lat: 36.9667, lon: -76.1167 }));
+      }, retryDelay);
+
+      return () => clearTimeout(retryTimer);
+    }
+  }, [error, retryCount, isLoading, dispatch]);
+
   const handleManualRefresh = () => {
-    console.log('Manual refresh triggered - fetching cb0201 data');
-    dispatch(fetchCurrentsData('cb0201'));
-    dispatch(fetchThreatAssessment({ lat: 36.9667, lon: -76.1167 })); // Chesapeake Bay coordinates
+    console.log('🔄 Manual refresh triggered - resetting retry count and fetching cb0201 data');
+    setRetryCount(0); // Reset retry counter on manual refresh
+    
+    if (navigator && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          console.log('✅ Geolocation for manual refresh:', latitude, longitude);
+          dispatch(fetchCurrentsData({ stationId: 'cb0201', lat: latitude, lon: longitude }));
+          dispatch(fetchThreatAssessment({ lat: latitude, lon: longitude }));
+        },
+        (err) => {
+          console.warn('⚠️ Geolocation failed on manual refresh, using default coords:', err.message);
+          dispatch(fetchCurrentsData({ stationId: 'cb0201', lat: 36.9667, lon: -76.1167 }));
+          dispatch(fetchThreatAssessment({ lat: 36.9667, lon: -76.1167 }));
+        },
+        { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
+      );
+    } else {
+      dispatch(fetchCurrentsData({ stationId: 'cb0201', lat: 36.9667, lon: -76.1167 }));
+      dispatch(fetchThreatAssessment({ lat: 36.9667, lon: -76.1167 }));
+    }
   };
 
   const formatSpeed = (speed) => {
-    if (!speed) return 'N/A';
+    // Treat 0 as a valid speed; only return 'N/A' for null/undefined
+    if (speed === null || speed === undefined) return 'N/A';
+    if (typeof speed !== 'number') return 'N/A';
     return `${speed.toFixed(1)} kts`;
   };
 
   const formatDirection = (direction) => {
-    if (!direction) return 'N/A';
-    
-    const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 
+    // Direction 0 is valid; only treat null/undefined as missing
+    if (direction === null || direction === undefined) return 'N/A';
+    if (typeof direction !== 'number') return 'N/A';
+
+    const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
                        'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
     const index = Math.round(direction / 22.5) % 16;
     return `${direction}° ${directions[index]}`;
@@ -469,10 +535,12 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
                     {latest.timestamp ? new Date(latest.timestamp).toLocaleTimeString() : 'N/A'}
                   </div>
                   <div className="text-sm text-slate-400 mb-2">Last Updated</div>
-                  {freshness !== null && (
+                  {typeof freshness === 'number' && !Number.isNaN(freshness) ? (
                     <div className={`text-xs ${getDataFreshnessColor(freshness)}`}>
                       {freshness < 60 ? `${freshness}m ago` : `${Math.round(freshness/60)}h ago`}
                     </div>
+                  ) : (
+                    <div className="text-xs text-slate-400">Unknown</div>
                   )}
                 </div>
               </div>
@@ -578,15 +646,14 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
 
                   {/* Recent Peaks */}
                   <div className="bg-slate-700/30 p-4 rounded-lg">
-                    <h5 className="font-medium text-slate-200 mb-3">Notable Current Events (Last 24 Hours)</h5>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                    <h5 className="font-medium text-slate-200 mb-3">Notable Current Events (All Recorded)</h5>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
                       {(() => {
+                        const threshold = 25; // kts
                         const peakEvents = data.observations
-                          .filter(r => (r.speed_knots || 0) > 25)
-                          .sort((a, b) => (b.speed_knots || 0) - (a.speed_knots || 0))
-                          .slice(0, 6);
-                        
-                        return peakEvents.map((event, index) => (
+                          .filter(r => (r.speed_knots || 0) > threshold)
+                          .sort((a, b) => (b.timestamp > a.timestamp ? -1 : 1));
+                        return peakEvents.length > 0 ? peakEvents.map((event, index) => (
                           <div key={index} className="flex justify-between items-center text-sm">
                             <span className="text-slate-300">
                               {new Date(event.timestamp).toLocaleString([], {
@@ -605,13 +672,12 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
                               </span>
                             </div>
                           </div>
-                        ));
+                        )) : (
+                          <div className="text-slate-400 text-sm text-center py-2">
+                            No major current events (&gt;{threshold} kts) recorded
+                          </div>
+                        );
                       })()}
-                      {data.observations.filter(r => (r.speed_knots || 0) > 25).length === 0 && (
-                        <div className="text-slate-400 text-sm text-center py-2">
-                          No major current events (&gt;25 kts) in the last 24 hours
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>

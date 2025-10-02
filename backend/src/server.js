@@ -8,12 +8,16 @@ const path = require('path');
 
 // Load environment variables from .env file - this must happen before importing modules that use env vars
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
-console.log("MONGODB_URI =", process.env.MONGODB_URI);
-console.log("PORT =", process.env.PORT);
+// Security: Don't log sensitive environment variables in production
+if (process.env.NODE_ENV !== 'production') {
+  console.log('Development mode - environment loaded');
+}
 
 const connectDB = require('./lib/db.js');
 const app = express();
-const PORT = process.env.PORT || 8000;
+// Use a separate default port for the Node backend in local development to
+// avoid colliding with the Python/uvicorn service which uses port 8000.
+const PORT = process.env.PORT || 3001;
 
 // Connect to Database
 connectDB();
@@ -43,6 +47,20 @@ const corsOptions = {
 
 // Apply CORS middleware early so all endpoints (including /api/health) return CORS headers
 app.use(cors(corsOptions));
+
+// Rate Limiting - Protect against abuse
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: {
+    error: 'Too many requests from this IP, please try again later.'
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
+// Apply rate limiting to all requests
+app.use(limiter);
 
 // Health Check Route (NO CORS - for Render health checks)
 app.get('/api/health', (req, res) => {
@@ -82,6 +100,33 @@ app.use('/api/enhanced-coastal', require('./routes/enhancedCoastal'));
 app.use('/api/community-reports', require('./routes/communityReports'));
 app.use('/api/threatReports', require('./routes/threatReports'));
 app.use('/api/ai', require('./routes/ai'));
+// Server-side proxy for OpenWeather to avoid exposing API key to clients
+app.use('/api/openweather', require('./routes/openWeatherProxy'));
+
+// Global Error Handler - Must be last middleware
+app.use((err, req, res, next) => {
+  console.error('🚨 Global Error:', err.stack);
+  
+  // Don't expose sensitive error details in production
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  res.status(err.status || 500).json({
+    error: 'Internal Server Error',
+    message: isDevelopment ? err.message : 'Something went wrong',
+    ...(isDevelopment && { stack: err.stack })
+  });
+});
+
+// 404 Handler - For unmatched routes
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Not Found',
+    message: `Route ${req.originalUrl} not found`,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Graceful Shutdown
 
 // Test Weather Service Route
 app.get('/api/test/weather', async (req, res) => {

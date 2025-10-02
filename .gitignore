@@ -1,3 +1,41 @@
+## Node
+node_modules/
+frontend/node_modules/
+
+## Vite / build
+/dist
+/build
+
+## Env files
+.env
+frontend/.env
+backend/.env
+
+## Python
+__pycache__/
+.venv/
+venv/
+*.pyc
+*.pkl
+
+## Logs
+*.log
+uvicorn_out.log
+uvicorn_err.log
+uvicorn.log
+
+## OS files
+.DS_Store
+Thumbs.db
+
+## IDE
+.vscode/
+.idea/
+
+## Misc
+.env.local
+.env.development
+.env.production
 # ==========================================
 # CTAS - Coastal Threat Alert System
 # Comprehensive Security .gitignore
@@ -306,5 +344,64 @@ webpack-bundle-analyzer-report.html
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
+
+# ==========================================
+# ADDITIONAL LOCAL FILES - USER SPECIFIC
+# ==========================================
+# Python virtual environment
+sklearn-env/
+.venv/
+venv/
+env/
+
+# AI Model files (large binary files)
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.pth
+*.onnx
+ai-models/*.pkl
+ai-models/models/*.pkl
+
+# Large datasets
+*.csv
+!example.csv
+!sample.csv
+weatherHistory.csv
+combined_weather_data.csv
+dataset_for_chatbot.csv
+final_training_dataset.csv
+weather_data*.csv
+
+# Log files
+*.log
+uvicorn*.log
+server*.log
+debug*.log
+
+# Cache files
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Local configuration overrides
+local-config.json
+local-settings.json
+dev-config.local.js
+
+# Temporary development files
+temp/
+tmp/
+scratch/
+notes/
+TODO.local.md
+
+# Database dumps and backups (keep local only)
+*.dump
+*.backup
+db-backup/
+backups/
 
 # End of CTAS .gitignore

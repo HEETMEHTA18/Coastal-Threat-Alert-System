@@ -23,22 +23,42 @@ router.post('/', async (req, res) => {
     const report = new CommunityReport(reportData);
     await report.save();
 
-    // Send SMS alerts using SMS service
-    const smsResults = await sendSMSAlerts(report);
-    
-    // Update SMS statistics
-    report.smsAlerts.sent = smsResults.total;
-    report.smsAlerts.successful = smsResults.successful;
-    report.smsAlerts.failed = smsResults.failed;
-    report.smsAlerts.lastSentAt = new Date();
-    await report.save();
-
+    // Respond immediately to the client so UI isn't blocked by SMS sending
     res.status(201).json({
       success: true,
-      message: 'Community report submitted successfully',
-      report: report,
-      smsResults: smsResults
+      message: 'Community report submitted successfully; SMS alerts are being sent',
+      report: report
     });
+
+    // Fire-and-forget: send SMS alerts asynchronously and persist results
+    (async () => {
+      try {
+        console.log('📨 Starting async SMS alerts for report', report._id);
+        const smsResults = await sendSMSAlerts(report);
+
+        // Update SMS statistics on the saved report
+        const saved = await CommunityReport.findById(report._id);
+        if (saved) {
+          saved.smsAlerts.sent = smsResults.total;
+          saved.smsAlerts.successful = smsResults.successful;
+          saved.smsAlerts.failed = smsResults.failed;
+          saved.smsAlerts.lastSentAt = new Date();
+          if (Array.isArray(smsResults.details)) {
+            smsResults.details.forEach(detail => {
+              saved.smsAlerts.recipients.push({
+                phone: detail.to,
+                status: detail.success ? 'sent' : 'failed',
+                sentAt: detail.sentAt || new Date()
+              });
+            });
+          }
+          await saved.save();
+          console.log('✅ Async SMS alerts completed for report', report._id);
+        }
+      } catch (err) {
+        console.error('Async SMS sending failed for report', report._id, err);
+      }
+    })();
 
   } catch (error) {
     console.error('❌ Error creating community report:', error);

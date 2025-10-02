@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
+import weatherService from '../services/weatherService';
 
-const WEATHER_API_KEY = process.env.REACT_APP_OPENWEATHERMAP_API_KEY;
-const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 
 
@@ -24,18 +24,12 @@ export default function WeatherMapWidget() {
   });
 
   const fetchWeather = async (lat, lng) => {
-    if (!WEATHER_API_KEY) {
-      console.error('Weather API key not configured');
-      return;
-    }
-    
     setLoading(true);
     try {
-      const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&units=metric&appid=${WEATHER_API_KEY}`);
-      const data = await res.json();
+      const data = await weatherService.getCurrentWeather(lat, lng);
       setWeather(data);
     } catch (error) {
-      console.error('Error fetching weather:', error);
+      console.error('Error fetching weather via service:', error);
     }
     setLoading(false);
   };
@@ -78,11 +72,7 @@ export default function WeatherMapWidget() {
         </div>
       )}
       
-      {!WEATHER_API_KEY && (
-        <div className="bg-yellow-500/20 border border-yellow-500 rounded-lg p-4 mb-4">
-          <p className="text-yellow-200">Weather API key not configured. Please add REACT_APP_OPENWEATHERMAP_API_KEY to your .env file.</p>
-        </div>
-      )}
+      {/* If server proxy is not configured and client key missing, warn in console; otherwise transparent to user */}
       
       {isLoaded && GOOGLE_MAPS_API_KEY && (
         <GoogleMap

@@ -140,12 +140,25 @@ export const useCurrentData = () => {
   // Extract latest observation from the observations array
   const observations = stationData.observations || [];
   const latestObservation = observations.length > 0 ? observations[observations.length - 1] : null;
-  
+
+  // Compute freshness (minutes) from latest observation timestamp if available
+  let freshnessMinutes = null;
+  try {
+    if (latestObservation && (latestObservation.timestamp || latestObservation.time)) {
+      const ts = new Date(latestObservation.timestamp || latestObservation.time);
+      if (!Number.isNaN(ts.getTime())) {
+        freshnessMinutes = Math.round((Date.now() - ts.getTime()) / 60000);
+      }
+    }
+  } catch (err) {
+    freshnessMinutes = null;
+  }
+
   return {
     data: stationData,
     isLoading: isLoading,
     error: error,
-    freshness: dataFreshness?.current ?? 'unknown',
+    freshness: typeof freshnessMinutes === 'number' ? freshnessMinutes : null,
     hasData: !!stationData && Object.keys(stationData).length > 0,
     latest: latestObservation,
     history: observations,

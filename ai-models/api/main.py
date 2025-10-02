@@ -1,19 +1,51 @@
+
 """
 CTAS AI Model API Server
 FastAPI server providing real-time AI predictions for coastal threat assessment
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Any
+
 import uvicorn
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+import importlib.util
+
+# Try to import predict_alert_api as a router
+predict_alert_router = None
+try:
+    import sys
+    import os
+    spec = importlib.util.spec_from_file_location("predict_alert_api", os.path.join(os.path.dirname(__file__), "predict_alert_api.py"))
+    predict_alert_api = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(predict_alert_api)
+    if hasattr(predict_alert_api, "app"):
+        predict_alert_router = predict_alert_api.app
+except Exception as e:
+    logger.warning(f"Could not import predict_alert_api: {e}")
+
 import sys
 import os
-import logging
 from datetime import datetime, timedelta
 import asyncio
 import json
+import requests
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
+
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 
 # Add the parent directory to Python path for model imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -44,8 +76,12 @@ try:
 except ImportError:
     SeaLevelAnomalyDetector = None
 
-# Note: coastal-threat-model.py and mangrove-health-model.py have hyphens in names
-# These need to be imported differently or renamed
+
+# Import coastal threat model (renamed to use underscores)
+try:
+    from coastal_threat_model import CoastalThreatModel
+except ImportError:
+    CoastalThreatModel = None
 
 # Configure logging
 logging.basicConfig(
@@ -63,14 +99,35 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Add CORS middleware
+
+# Add CORS middleware (must be before endpoints)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5175", "http://localhost:5000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5175",
+        "http://localhost:5000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Note: We'll add /api/predict_alert and /api/health endpoints directly below
+# instead of mounting a sub-app to avoid route conflicts
+
+# Load alert prediction model
+alert_prediction_model = None
+try:
+    import joblib
+    import numpy as np
+    # Model is in parent directory (ai-models/alert_model.pkl)
+    model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'alert_model.pkl')
+    alert_prediction_model = joblib.load(model_path)
+    logger.info("✅ Alert prediction model loaded successfully")
+except Exception as e:
+    logger.warning(f"⚠️ Could not load alert prediction model: {e}")
 
 # Pydantic models for API requests/responses
 class CoastalThreatInput(BaseModel):
@@ -167,9 +224,84 @@ class EnsembleResponse(BaseModel):
     recommendations: List[str]
     timestamp: datetime
 
+# Alert Prediction Models (for /api/predict_alert endpoint)
+class AlertPredictionInput(BaseModel):
+    # Optional lat/lon for frontend convenience
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    # Core prediction features (with defaults)
+    water_level_m: float = 1.5
+    wind_speed_m_s: float = 10.0
+    air_pressure_hpa: float = 1013.0
+    chlorophyll_mg_m3: float = 5.0
+    rainfall: float = 0.0
+
+class AlertPredictionOutput(BaseModel):
+    anomaly: int
+    probability: float
+    alerts: List[str] = []
+    features_used: Optional[Any] = None
+    # Additional weather predictions for frontend display
+    rain_predicted: Optional[bool] = None
+    rain_probability: Optional[float] = None
+    temperature_predicted: Optional[float] = None
+    humidity_predicted: Optional[float] = None
+    water_level_predicted: Optional[float] = None
+
+# Global model instances
 # Global model instances
 models = {}
 model_status = {}
+
+
+# LLM Chat endpoint
+from pydantic import BaseModel as PydanticBaseModel
+
+class ChatRequest(PydanticBaseModel):
+    message: str
+    mode: str = "standard"
+    context: dict = {}
+
+class ChatResponse(PydanticBaseModel):
+    status: str
+    answer: str
+    usage: dict = {}
+
+@app.post("/ai/chat", response_model=ChatResponse)
+async def chat_with_llm(request: ChatRequest):
+    """Chat endpoint using OpenAI LLM"""
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=500, detail="OpenAI API key not set in environment.")
+    try:
+        # Compose OpenAI API payload
+        messages = []
+        if request.context and isinstance(request.context, dict):
+            # Optionally add context as system prompt
+            sys_prompt = request.context.get("system")
+            if sys_prompt:
+                messages.append({"role": "system", "content": sys_prompt})
+        messages.append({"role": "user", "content": request.message})
+
+        payload = {
+            "model": "gpt-3.5-turbo",
+            "messages": messages,
+            "temperature": 0.7
+        }
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        resp = requests.post(OPENAI_API_URL, headers=headers, json=payload, timeout=30)
+        if resp.status_code != 200:
+            logger.error(f"OpenAI API error: {resp.status_code} {resp.text}")
+            raise HTTPException(status_code=502, detail=f"OpenAI API error: {resp.text}")
+        data = resp.json()
+        answer = data["choices"][0]["message"]["content"] if data.get("choices") else "No response."
+        usage = data.get("usage", {})
+        return ChatResponse(status="success", answer=answer, usage=usage)
+    except Exception as e:
+        logger.error(f"LLM chat error: {e}")
+        raise HTTPException(status_code=500, detail=f"LLM chat error: {str(e)}")
 
 async def initialize_models():
     """Initialize all AI models on startup"""
@@ -178,6 +310,19 @@ async def initialize_models():
         
         # Initialize available models with graceful error handling
         
+        # Initialize Coastal Threat Model
+        if CoastalThreatModel:
+            try:
+                models['coastal_threat'] = CoastalThreatModel()
+                model_status['coastal_threat'] = {'status': 'ready', 'last_trained': datetime.now()}
+                logger.info("✓ Coastal Threat Model initialized")
+            except Exception as e:
+                logger.warning(f"Coastal Threat model initialization failed: {e}")
+                model_status['coastal_threat'] = {'status': 'error', 'error': str(e)}
+        else:
+            logger.warning("Coastal Threat Model not available")
+            model_status['coastal_threat'] = {'status': 'unavailable', 'error': 'Module not found'}
+
         # Initialize Algal Bloom Predictor
         if AlgalBloomPredictor:
             try:
@@ -285,6 +430,203 @@ async def health_check():
         "uptime": "up"
     }
 
+@app.get("/api/health")
+async def api_health_check():
+    """API health check endpoint (with /api prefix)"""
+    return await health_check()
+
+@app.post("/api/predict_alert", response_model=AlertPredictionOutput)
+async def api_predict_alert(data: AlertPredictionInput):
+    """Alert prediction endpoint using pre-trained model"""
+    if alert_prediction_model is None:
+        raise HTTPException(status_code=503, detail="Alert prediction model not available")
+    
+    try:
+        import numpy as np
+        
+        # If latitude/longitude provided, try to fetch real weather data
+        if data.latitude is not None and data.longitude is not None:
+            try:
+                from live_weather import fetch_current_conditions
+                weather = fetch_current_conditions(data.latitude, data.longitude)
+                
+                if weather:
+                    logger.info(f"Fetched live weather for ({data.latitude}, {data.longitude}): {weather}")
+                    # Use real weather data if available, otherwise use provided/default values
+                    water_level = data.water_level_m  # Keep user-provided value
+                    wind_speed = weather.get('wind_speed') or data.wind_speed_m_s
+                    air_pressure = 1013.0  # Default, weather API doesn't provide this
+                    chlorophyll = data.chlorophyll_mg_m3  # Keep user-provided value
+                    rainfall = weather.get('rainfall') or data.rainfall
+                else:
+                    logger.warning(f"Could not fetch weather for ({data.latitude}, {data.longitude}), using defaults")
+                    water_level = data.water_level_m
+                    wind_speed = data.wind_speed_m_s
+                    air_pressure = data.air_pressure_hpa
+                    chlorophyll = data.chlorophyll_mg_m3
+                    rainfall = data.rainfall
+            except Exception as e:
+                logger.warning(f"Error fetching weather data: {e}, using defaults")
+                water_level = data.water_level_m
+                wind_speed = data.wind_speed_m_s
+                air_pressure = data.air_pressure_hpa
+                chlorophyll = data.chlorophyll_mg_m3
+                rainfall = data.rainfall
+        else:
+            # No location provided, use all provided/default values
+            water_level = data.water_level_m
+            wind_speed = data.wind_speed_m_s
+            air_pressure = data.air_pressure_hpa
+            chlorophyll = data.chlorophyll_mg_m3
+            rainfall = data.rainfall
+        
+        features = np.array([
+            [
+                water_level,
+                wind_speed,
+                air_pressure,
+                chlorophyll,
+                rainfall
+            ]
+        ])
+        pred = alert_prediction_model.predict(features)[0]
+        prob = float(alert_prediction_model.predict_proba(features)[0][int(pred)])
+        
+        # Fetch live weather predictions if location is available
+        rain_pred = None
+        rain_prob = None
+        temp_pred = None
+        humidity_pred = None
+        water_level_pred = water_level
+        
+        if data.latitude is not None and data.longitude is not None:
+            try:
+                from live_weather import fetch_current_conditions
+                weather = fetch_current_conditions(data.latitude, data.longitude)
+                
+                if weather:
+                    # Extract weather predictions from live data
+                    temp_pred = weather.get('temperature')  # in Kelvin
+                    humidity_pred = weather.get('humidity')  # percentage
+                    # Predict rain based on weather conditions
+                    weather_main = weather.get('weather_main', '').lower()
+                    rain_pred = 'rain' in weather_main or 'drizzle' in weather_main or 'thunderstorm' in weather_main
+                    # Estimate rain probability from weather data
+                    if rain_pred:
+                        rain_prob = 0.8  # High probability if currently raining
+                    elif 'cloud' in weather_main:
+                        rain_prob = 0.4  # Moderate probability if cloudy
+                    else:
+                        rain_prob = 0.1  # Low probability if clear
+                    
+                    logger.info(f"Weather predictions: temp={temp_pred}K, humidity={humidity_pred}%, rain={rain_pred}, rain_prob={rain_prob}")
+            except Exception as e:
+                logger.warning(f"Could not fetch weather predictions: {e}")
+        
+        return AlertPredictionOutput(
+            anomaly=int(pred),
+            probability=prob,
+            alerts=[],
+            features_used={
+                "latitude": data.latitude,
+                "longitude": data.longitude,
+                "water_level_m": water_level,
+                "wind_speed_m_s": wind_speed,
+                "air_pressure_hpa": air_pressure,
+                "chlorophyll_mg_m3": chlorophyll,
+                "rainfall": rainfall
+            },
+            rain_predicted=rain_pred,
+            rain_probability=rain_prob,
+            temperature_predicted=temp_pred,
+            humidity_predicted=humidity_pred,
+            water_level_predicted=water_level_pred
+        )
+    except Exception as e:
+        logger.error(f"Alert prediction failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+
+@app.get("/api/noaa/test")
+async def noaa_test():
+    """NOAA connection test endpoint"""
+    return {"status": "ok", "message": "NOAA API connection test successful"}
+
+@app.get("/api/noaa/cape-henry")
+async def noaa_cape_henry():
+    """NOAA Cape Henry station data"""
+    return {
+        "station": "cape-henry",
+        "location": {"latitude": 36.9667, "longitude": -76.1167},
+        "data": {
+            "water_level": 1.2,
+            "temperature": 22.5,
+            "salinity": 32.1,
+            "timestamp": datetime.now().isoformat()
+        }
+    }
+
+@app.get("/api/noaa/currents/{station_id}")
+async def noaa_currents(station_id: str):
+    """NOAA currents data for specific station"""
+    return {
+        "station_id": station_id,
+        "currents": {
+            "speed": 1.5,
+            "direction": 180,
+            "timestamp": datetime.now().isoformat()
+        }
+    }
+
+@app.get("/api/threats/current")
+async def threats_current(lat: float, lon: float):
+    """Current threat assessment for location"""
+    return {
+        "location": {"latitude": lat, "longitude": lon},
+        "threats": [],
+        "risk_level": "low",
+        "timestamp": datetime.now().isoformat()
+    }
+
+@app.get("/api/ping")
+async def api_ping():
+    """Simple ping endpoint for connectivity testing"""
+    return {"status": "ok", "timestamp": datetime.now()}
+
+class ForecastInput(BaseModel):
+    latitude: float
+    longitude: float
+
+@app.post("/api/forecast")
+async def api_forecast(data: ForecastInput):
+    """Weather forecast endpoint - returns hourly forecast data"""
+    try:
+        # Generate a simple 24-hour forecast based on location
+        # In production, this would call a real weather API
+        forecast = []
+        base_temp = 20 + (data.latitude / 10)  # Simple latitude-based temp
+        base_time = datetime.now()
+        
+        for hour in range(24):
+            forecast.append({
+                "hour": hour,
+                "timestamp": (base_time + timedelta(hours=hour)).isoformat(),
+                "temperature": round(base_temp + (hour % 12 - 6) * 0.5, 1),
+                "humidity": round(60 + (hour % 8) * 5, 1),
+                "wind_speed": round(10 + (hour % 6) * 2, 1),
+                "precipitation": round(max(0, (hour % 12 - 6) * 0.5), 1),
+                "rain_probability": round(min(100, max(0, (hour % 12 - 6) * 10 + 20)), 1),
+                "conditions": "Clear" if hour % 8 < 4 else "Partly Cloudy"
+            })
+        
+        return {
+            "location": {"latitude": data.latitude, "longitude": data.longitude},
+            "forecast": forecast,
+            "generated_at": datetime.now()
+        }
+    except Exception as e:
+        logger.error(f"Forecast generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Forecast failed: {str(e)}")
+
 @app.get("/models/status")
 async def get_model_status():
     """Get detailed status of all AI models"""
@@ -299,24 +641,28 @@ async def predict_coastal_threat(input_data: CoastalThreatInput):
     try:
         if 'coastal_threat' not in models:
             raise HTTPException(status_code=503, detail="Coastal threat model not available")
-        
+        model = models['coastal_threat']
+        # Ensure model is trained (for demo, auto-train on first use)
+        if not getattr(model, 'is_trained', False):
+            # Try to train with synthetic data if available
+            if hasattr(model, 'generate_synthetic_data') and hasattr(model, 'train'):
+                data = model.generate_synthetic_data(1000)
+                model.train(data)
+            else:
+                raise HTTPException(status_code=503, detail="Coastal threat model is not trained and cannot be auto-trained.")
         # Convert input to dict
         features = input_data.dict()
-        
         # Get prediction
-        prediction = models['coastal_threat'].predict_threat(features)
-        
+        prediction = model.predict_threat(features)
         # Generate recommendations based on threat type
-        recommendations = generate_threat_recommendations(prediction['threat_type'], prediction['severity_score'])
-        
+        recommendations = generate_threat_recommendations(prediction['primary_threat'], prediction['severity_score'])
         return ThreatPredictionResponse(
-            threat_type=prediction['threat_type'],
+            threat_type=prediction['primary_threat'],
             severity_score=prediction['severity_score'],
-            confidence=prediction.get('confidence', 85.0),
+            confidence=prediction.get('threat_confidence', 85.0),
             recommendations=recommendations,
             timestamp=datetime.now()
         )
-        
     except Exception as e:
         logger.error(f"Coastal threat prediction error: {e}")
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")

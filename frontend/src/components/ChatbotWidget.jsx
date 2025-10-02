@@ -2,6 +2,8 @@
 import { X, Send, Mic, MicOff, Volume2, Settings } from 'lucide-react';
 import { useAuth } from '../store/hooks';
 import { sendChatMessage } from '../services/chatService';
+import { getAlertPrediction } from '../services/alertPredictionService';
+import { getWeatherPrediction } from '../services/weatherPredictionService';
 
 const ChatbotWidget = ({ onClose }) => {
   const [messages, setMessages] = useState([
@@ -18,12 +20,21 @@ const ChatbotWidget = ({ onClose }) => {
   const [responseMode, setResponseMode] = useState('technical');
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const utteranceRef = useRef(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const { user } = useAuth();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Ensure speech stops when widget unmounts
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+    };
+  }, []);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() || isTyping) return;
@@ -40,10 +51,168 @@ const ChatbotWidget = ({ onClose }) => {
     setIsTyping(true);
 
     try {
+      // If user asks for a prediction, call the prediction API
+      // Example: if the message contains 'predict' or 'alert', use static demo values
+      const lower = userMessage.text.toLowerCase();
+
+
+      // Unified prediction intent (weather, rain, forecast, currents)
+      if (lower.includes('weather') || lower.includes('forecast') || lower.includes('rain') || lower.includes('current')) {
+        // Try to get user's location from browser if available
+        let lat = 19.0760;
+        let lon = 72.8777;
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(async (position) => {
+            lat = position.coords.latitude;
+            lon = position.coords.longitude;
+            await fetchAlertPrediction(lat, lon);
+          }, async () => {
+            await fetchAlertPrediction(lat, lon);
+          });
+        } else {
+          await fetchAlertPrediction(lat, lon);
+        }
+        async function fetchAlertPrediction(lat, lon) {
+          try {
+            const result = await getAlertPrediction({ latitude: lat, longitude: lon });
+
+            // Build a structured message payload for the UI
+            const payload = {
+              rain_predicted: result.rain_predicted ?? null,
+              rain_probability: result.rain_probability ?? null,
+              temperature_predicted: result.temperature_predicted ?? null,
+              humidity_predicted: result.humidity_predicted ?? null,
+              water_level_predicted: result.water_level_predicted ?? null,
+              alerts: Array.isArray(result.alerts) ? result.alerts : [],
+              features_used: result.features_used || null,
+              _source: result._source || 'unknown'
+            };
+
+            setMessages(prev => [...prev, {
+              id: Date.now() + 3,
+              text: '', // text will be rendered from payload
+              isBot: true,
+              timestamp: new Date(),
+              coastalScore: 80,
+              type: 'prediction',
+              payload
+            }]);
+
+            // Also try to fetch a short forecast (next 6 hours) to provide context; this remains optional
+            try {
+              const forecast = await getWeatherPrediction({ latitude: lat, longitude: lon });
+              if (Array.isArray(forecast) && forecast.length > 0) {
+                const next6 = forecast.slice(0, 6).map(h => ({
+                  timestamp: h.timestamp,
+                  temperature: h.temperature,
+                  humidity: h.humidity,
+                  rain_probability: h.rain_probability
+                }));
+                setMessages(prev => [...prev, {
+                  id: Date.now() + 4,
+                  text: '',
+                  isBot: true,
+                  timestamp: new Date(),
+                  type: 'forecast_summary',
+                  payload: { hours: next6 }
+                }]);
+              }
+            } catch (ferr) {
+              // ignore forecast errors for the primary alert card
+            }
+
+          } catch (err) {
+            const extra = err.body ? ` | body: ${JSON.stringify(err.body)}` : (err.request ? ' | no-response' : '');
+            setMessages(prev => [...prev, {
+              id: Date.now() + 3,
+              text: `Prediction error: ${err.message}${extra}`,
+              isBot: true,
+              timestamp: new Date(),
+              coastalScore: 0
+            }]);
+          }
+        }
+        setIsTyping(false);
+        return;
+      }
+
       // Prefer quick FAQ answer if available
       const faq = getFAQAnswer(userMessage.text);
-      const result = faq ? { message: faq } : await sendChatMessage({ text: userMessage.text, mode: responseMode, context: { user: user?.name || 'Guest' } });
+      if (faq) {
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          text: faq,
+          isBot: true,
+          timestamp: new Date(),
+          coastalScore: 78
+        }]);
+        return;
+      }
 
+      // If user asks for a prediction, call the prediction API
+      // Example: if the message contains 'predict' or 'alert', use static demo values
+      // Build prediction input; attempt to get the user's current coordinates
+      let predLat = 19.0760;
+      let predLon = 72.8777;
+      if (navigator.geolocation) {
+        try {
+          const pos = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+          });
+          predLat = pos.coords.latitude;
+          predLon = pos.coords.longitude;
+        } catch (e) {
+          // If geolocation fails or times out, fall back to defaults
+        }
+      }
+
+      const predictionInput = {
+        // include lat/lon so backend pydantic schema accepts the request
+        latitude: predLat,
+        longitude: predLon,
+        water_level_m: 1.5,
+        wind_speed_m_s: 5.0,
+        air_pressure_hpa: 1012,
+        chlorophyll_mg_m3: 0.8,
+        rainfall: 0.0
+      };
+      try {
+        const result = await getAlertPrediction(predictionInput);
+        
+        // Build a structured message payload for the UI (same as fetchAlertPrediction)
+        const payload = {
+          rain_predicted: result.rain_predicted ?? null,
+          rain_probability: result.rain_probability ?? null,
+          temperature_predicted: result.temperature_predicted ?? null,
+          humidity_predicted: result.humidity_predicted ?? null,
+          water_level_predicted: result.water_level_predicted ?? null,
+          alerts: Array.isArray(result.alerts) ? result.alerts : [],
+          features_used: result.features_used || null,
+          _source: result._source || 'unknown'
+        };
+
+        setMessages(prev => [...prev, {
+          id: Date.now() + 2,
+          text: '', // text will be rendered from payload
+          isBot: true,
+          timestamp: new Date(),
+          coastalScore: result.anomaly === 1 ? 100 : 80,
+          type: 'prediction',
+          payload
+        }]);
+      } catch (err) {
+        setMessages(prev => [...prev, {
+          id: Date.now() + 2,
+          text: `Prediction error: ${err.message}`,
+          isBot: true,
+          timestamp: new Date(),
+          coastalScore: 0
+        }]);
+      }
+      return;
+
+      // Otherwise, fallback to normal chat
+      const result = await sendChatMessage({ text: userMessage.text, mode: responseMode, context: { user: user?.name || 'Guest' } });
       const responseText = result?.message || "I'm experiencing some technical difficulties. Please try again.";
 
       // Simulated streaming typing effect for a real-time feel
@@ -76,13 +245,72 @@ const ChatbotWidget = ({ onClose }) => {
     }
   };
 
-  const speakMessage = (text) => {
-    if ('speechSynthesis' in window) {
-      speechSynthesis.cancel();
+  const stopSpeech = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {
+        // ignore
+      }
+    }
+    utteranceRef.current = null;
+    setIsSpeaking(false);
+  };
+
+  const speakMessage = (messageOrText) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    // Stop any current speech
+    stopSpeech();
+
+    let text = '';
+    if (typeof messageOrText === 'string') {
+      text = messageOrText;
+    } else if (messageOrText && messageOrText.type === 'prediction' && messageOrText.payload) {
+      const p = messageOrText.payload;
+      // Temperature is already in Celsius from the API, no need to convert
+      const tempC = p.temperature_predicted != null && !Number.isNaN(p.temperature_predicted) 
+        ? Math.round(Number(p.temperature_predicted) * 10) / 10 
+        : null;
+      const rainPct = p.rain_probability != null ? Math.round(p.rain_probability * 100) : (p.rain_predicted ? 100 : 0);
+      text = `Prediction and alerts. Rain: ${p.rain_predicted ? 'Yes' : 'No'} (${rainPct} percent). ` +
+             `Temperature: ${tempC != null ? tempC + ' degrees Celsius' : 'N A'}. ` +
+             `Humidity: ${p.humidity_predicted != null ? Math.round(p.humidity_predicted) + ' percent' : 'N A'}. ` +
+             `Water level: ${p.water_level_predicted != null ? p.water_level_predicted + ' meters' : 'N A'}.`;
+    } else if (messageOrText && messageOrText.type === 'forecast_summary' && messageOrText.payload && Array.isArray(messageOrText.payload.hours)) {
+      const hours = messageOrText.payload.hours.slice(0, 6);
+      text = 'Forecast for the next ' + hours.length + ' hours. ';
+      for (const h of hours) {
+        const t = h.temperature != null ? `${Math.round((h.temperature - 273.15) * 10) / 10} degrees` : 'N A';
+        const hp = h.humidity != null ? `${Math.round(h.humidity)} percent` : 'N A';
+        const rp = h.rain_probability != null ? `${Math.round(h.rain_probability * 100)} percent` : 'N A';
+        const timeLabel = new Date(h.timestamp).toLocaleTimeString();
+        text += `${timeLabel}: ${t}, humidity ${hp}, rain ${rp}. `;
+      }
+    } else if (messageOrText && messageOrText.text) {
+      text = messageOrText.text;
+    } else {
+      return;
+    }
+
+    try {
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.8;
+      utterance.rate = 0.9;
       utterance.pitch = 1;
-      speechSynthesis.speak(utterance);
+      utterance.onend = () => {
+        utteranceRef.current = null;
+        setIsSpeaking(false);
+      };
+      utterance.onerror = () => {
+        utteranceRef.current = null;
+        setIsSpeaking(false);
+      };
+      utteranceRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+      setIsSpeaking(true);
+    } catch (e) {
+      // ignore TTS errors
+      utteranceRef.current = null;
+      setIsSpeaking(false);
     }
   };
 
@@ -255,10 +483,39 @@ Ask: "Show mangrove health this month"`
             >
               <Settings className="w-4 h-4" />
             </button>
-            
+
+            <button
+              onClick={async () => {
+                // ping the backend via the Vite proxy
+                try {
+                  const res = await fetch('/api/ping');
+                  const body = await res.json().catch(() => null);
+                  setMessages(prev => [...prev, {
+                    id: Date.now(),
+                    text: body && body.message ? `Backend: ${body.message}` : `Backend responded: ${res.status} ${res.statusText}`,
+                    isBot: true,
+                    isSystem: true,
+                    timestamp: new Date()
+                  }]);
+                } catch (e) {
+                  setMessages(prev => [...prev, {
+                    id: Date.now(),
+                    text: `Backend ping failed: ${e.message}`,
+                    isBot: true,
+                    isSystem: true,
+                    timestamp: new Date()
+                  }]);
+                }
+              }}
+              className="p-2 hover:bg-white/20 rounded-full transition-colors"
+              title="Ping backend"
+            >
+              <span className="text-sm">Ping</span>
+            </button>
+
             {onClose && (
               <button
-                onClick={onClose}
+                onClick={() => { stopSpeech(); onClose && onClose(); }}
                 className="p-2 hover:bg-white/20 rounded-full transition-colors"
                 title="Close assistant"
               >
@@ -283,16 +540,90 @@ Ask: "Show mangrove health this month"`
                   : 'bg-blue-600 text-white shadow-lg'
               }`}
             >
-              <p className="text-sm whitespace-pre-line">{message.text}</p>
+              {/* Render structured prediction/forecast types specially */}
+              {message.type === 'prediction' && message.payload ? (
+                (() => {
+                  const p = message.payload;
+                  // Temperature is already in Celsius from the API, no need to convert from Kelvin
+                  const tempC = (t) => (t == null || Number.isNaN(t) ? 'N/A' : `${Math.round(Number(t) * 10) / 10}°C`);
+                  const pct = (v) => (v == null || Number.isNaN(v) ? 'N/A' : `${Math.round((Number(v) * 1000)) / 10}%`);
+                  return (
+                    <div>
+                      <div className="font-semibold flex items-center justify-between">
+                        <span>Prediction & Alerts</span>
+                        <span className="text-xs text-gray-500">{p._source === 'proxy' ? 'proxy' : p._source === 'direct' ? 'direct' : 'backend'}</span>
+                      </div>
+                      {p.structured_alerts && p.structured_alerts.length > 0 ? (
+                        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                          <div className="font-bold text-yellow-800">⚠️ Alerts</div>
+                          <ul className="list-none ml-0 mt-1 text-sm space-y-1">
+                            {p.structured_alerts.map((a, i) => (
+                              <li key={i} className="flex items-start space-x-2">
+                                <div className={`px-2 py-1 rounded text-white text-xs ${a.severity === 'critical' ? 'bg-red-600' : a.severity === 'warn' ? 'bg-yellow-600 text-black' : 'bg-gray-400'}`}>
+                                  {a.severity.toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="font-medium">{a.text}</div>
+                                  {a.suggested_action ? <div className="text-xs text-gray-700">Action: {a.suggested_action}</div> : null}
+                                  {a.model_meta && Object.keys(a.model_meta).length > 0 ? <div className="text-xs text-gray-500">Model: {a.model_meta.model || a.model_meta.model_name || a.model_meta.model || 'unknown'}</div> : null}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : p.alerts && p.alerts.length > 0 ? (
+                        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                          <div className="font-bold text-yellow-800">⚠️ Alerts</div>
+                          <ul className="list-disc ml-5 mt-1 text-sm">
+                            {p.alerts.map((a, i) => <li key={i}>{a}</li>)}
+                          </ul>
+                        </div>
+                      ) : (
+                        <div className="mt-2 text-sm text-gray-600">No critical alerts.</div>
+                      )}
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                        <div><strong>Rain:</strong> {p.rain_predicted ? 'Yes' : 'No'} ({pct(p.rain_probability)})</div>
+                        <div><strong>Temp:</strong> {tempC(p.temperature_predicted)}</div>
+                        <div><strong>Humidity:</strong> {p.humidity_predicted != null ? `${Math.round(p.humidity_predicted)}%` : 'N/A'}</div>
+                        <div><strong>Water:</strong> {p.water_level_predicted != null ? `${Math.round(p.water_level_predicted * 100) / 100} m` : 'N/A'}</div>
+                      </div>
+                      {p.features_used ? (
+                        <div className="mt-2 text-xs text-gray-500">Lat: {p.features_used.latitude ?? 'N/A'}, Lon: {p.features_used.longitude ?? 'N/A'}</div>
+                      ) : null}
+                    </div>
+                  );
+                })()
+              ) : message.type === 'forecast_summary' && message.payload ? (
+                (() => {
+                  const hours = message.payload.hours || [];
+                  return (
+                    <div>
+                      <div className="font-semibold">Forecast (next {hours.length}h)</div>
+                      <div className="mt-2 text-sm grid grid-cols-1 gap-2">
+                        {hours.map((h, idx) => (
+                          <div key={idx} className="flex justify-between text-xs text-gray-700">
+                            <div>{new Date(h.timestamp).toLocaleTimeString()}</div>
+                            <div>{(h.temperature != null) ? `${Math.round((h.temperature - 273.15) * 10) / 10}°C` : 'N/A'}</div>
+                            <div>{h.humidity != null ? `${Math.round(h.humidity)}%` : 'N/A'}</div>
+                            <div>{h.rain_probability != null ? `${Math.round(h.rain_probability * 100)}%` : 'N/A'}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()
+              ) : (
+                <p className="text-sm whitespace-pre-line">{message.text}</p>
+              )}
               {message.isBot && (
                 <div className="flex items-center mt-2 space-x-2">
-                  <button
-                    onClick={() => speakMessage(message.text)}
-                    className="text-blue-500 hover:text-blue-700 transition-colors"
-                    title="Listen to message"
-                  >
-                    <Volume2 className="w-4 h-4" />
-                  </button>
+                    <button
+                      onClick={() => speakMessage(message.type ? message : message.text)}
+                      className="text-blue-500 hover:text-blue-700 transition-colors"
+                      title={isSpeaking ? 'Stop speaking' : 'Listen to message'}
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
                   {message.coastalScore && (
                     <div className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
                       Coastal Score: {message.coastalScore}%
@@ -367,6 +698,80 @@ Ask: "Show mangrove health this month"`
               {action}
             </button>
           ))}
+
+          {/* Live data quick action */}
+          <button
+            key="live-data"
+            onClick={async () => {
+              setIsTyping(true);
+              // Request geolocation and fetch alert + forecast
+              let lat = 19.0760;
+              let lon = 72.8777;
+              if (navigator.geolocation) {
+                try {
+                  const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 }));
+                  lat = pos.coords.latitude;
+                  lon = pos.coords.longitude;
+                } catch (e) {
+                  // user denied or timeout, keep defaults
+                }
+              }
+              try {
+                const result = await getAlertPrediction({ latitude: lat, longitude: lon });
+                const payload = {
+                  rain_predicted: result.rain_predicted ?? null,
+                  rain_probability: result.rain_probability ?? null,
+                  temperature_predicted: result.temperature_predicted ?? null,
+                  humidity_predicted: result.humidity_predicted ?? null,
+                  water_level_predicted: result.water_level_predicted ?? null,
+                  alerts: Array.isArray(result.alerts) ? result.alerts : [],
+                  features_used: result.features_used || null,
+                  _source: result._source || 'unknown'
+                };
+                setMessages(prev => [...prev, {
+                  id: Date.now() + 5,
+                  text: '',
+                  isBot: true,
+                  timestamp: new Date(),
+                  coastalScore: 80,
+                  type: 'prediction',
+                  payload
+                }]);
+
+                // fetch forecast as well
+                try {
+                  const forecast = await getWeatherPrediction({ latitude: lat, longitude: lon });
+                  if (forecast && Array.isArray(forecast.hours ? forecast.forecast : forecast)) {
+                    const hours = forecast.hours ? forecast.forecast : forecast;
+                    const next6 = hours.slice(0, 6).map(h => ({ timestamp: h.timestamp, temperature: h.temperature, humidity: h.humidity, rain_probability: h.rain_probability }));
+                    setMessages(prev => [...prev, {
+                      id: Date.now() + 6,
+                      text: '',
+                      isBot: true,
+                      timestamp: new Date(),
+                      type: 'forecast_summary',
+                      payload: { hours: next6 }
+                    }]);
+                  }
+                } catch (ferr) {
+                  // ignore forecast errors
+                }
+              } catch (err) {
+                setMessages(prev => [...prev, {
+                  id: Date.now() + 5,
+                  text: `Live prediction error: ${err.message}`,
+                  isBot: true,
+                  timestamp: new Date(),
+                  coastalScore: 0
+                }]);
+              } finally {
+                setIsTyping(false);
+              }
+            }}
+            className="text-xs bg-green-50 text-green-700 px-3 py-1 rounded-full hover:bg-green-100 transition-colors"
+          >
+            🔄 Live data
+          </button>
         </div>
 
         <div className="mt-3 text-center">

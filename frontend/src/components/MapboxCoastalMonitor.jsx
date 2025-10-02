@@ -24,11 +24,18 @@ import {
 } from 'lucide-react';
 import weatherService from '../services/weatherService';
 import FallbackMap from './FallbackMap';
+import OSMFallbackMap from './OSMFallbackMap';
 import OceanCurrentsPanel from './OceanCurrentsPanel';
 import CurrentsVisualizationService from '../services/currentsVisualizationService';
+import { REGIONS, INDIA_BOUNDS, getRegionsGeoJSON, getRegionById } from '../data/indiaRegions';
 
-// Mapbox access token from environment variables
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+// Mapbox access token from environment variables (build-time). The app expects a
+// public Mapbox token defined in `frontend/.env` as `VITE_MAPBOX_ACCESS_TOKEN`.
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+if (!MAPBOX_TOKEN && import.meta.env.DEV) {
+  console.warn('⚠️ VITE_MAPBOX_ACCESS_TOKEN is not set. Mapbox features will be disabled until you set it and restart the dev server.');
+}
+mapboxgl.accessToken = MAPBOX_TOKEN || '';
 
 const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
   const mapContainer = useRef(null);
@@ -50,12 +57,11 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
   const [selectedCoordinates, setSelectedCoordinates] = useState(null);
   const [currentsVisualization, setCurrentsVisualization] = useState(null);
   const [showCurrentArrows, setShowCurrentArrows] = useState(false);
+  const [selectedRegionId, setSelectedRegionId] = useState('all-india');
+  const [mapReady, setMapReady] = useState(false);
 
-  // Check if Mapbox token is available
-  const hasMapboxToken = mapboxgl.accessToken && mapboxgl.accessToken !== 'undefined';
-
-  // Show fallback component if no token or if map initialization failed
-  if (!hasMapboxToken || mapError) {
+  // If no build-time token is present, show the non-Mapbox fallback UI to avoid runtime errors.
+  if ((!MAPBOX_TOKEN || !MAPBOX_TOKEN.startsWith('pk.')) || mapError) {
     return <FallbackMap />;
   }
 
@@ -311,9 +317,84 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
     });
 
     map.current.on('load', () => {
+      // mark map ready so React can mount controls that depend on the map
+      try { setMapReady(true); } catch (e) {}
       // Initialize currents visualization service
       const visualizationService = new CurrentsVisualizationService(map.current);
       setCurrentsVisualization(visualizationService);
+
+      // Add a regions source and render colored partitions with subtle fills + outlines
+      map.current.addSource('india-regions', {
+        type: 'geojson',
+        data: getRegionsGeoJSON()
+      });
+
+      // Partition fill using feature-state color (we'll set paint to read 'color' property)
+      map.current.addLayer({
+        id: 'india-regions-partition',
+        type: 'fill',
+        source: 'india-regions',
+        paint: {
+          'fill-color': ['coalesce', ['get', 'color'], '#60a5fa'],
+          'fill-opacity': 0.18
+        }
+      });
+
+      // Outline
+      map.current.addLayer({
+        id: 'india-regions-outline',
+        type: 'line',
+        source: 'india-regions',
+        paint: {
+          'line-color': ['coalesce', ['get', 'color'], '#06b6d4'],
+          'line-width': 2,
+          'line-opacity': 0.95
+        }
+      });
+
+      // Selected region highlight (draw above region outline)
+      map.current.addLayer({
+        id: 'india-region-highlight',
+        type: 'line',
+        source: 'india-regions',
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': 4,
+          'line-opacity': 0.95
+        }
+      }, 'india-regions-outline');
+
+      // Initially set highlight filter to selectedRegionId
+      try {
+        map.current.setFilter('india-region-highlight', ['==', ['get', 'id'], selectedRegionId]);
+      } catch (e) {}
+
+      // Add a symbol layer for region labels (we'll add points later as a separate source)
+      const labelFeatures = REGIONS.map(r => ({
+        type: 'Feature',
+        properties: { id: r.id, name: r.name, color: r.color || '#60a5fa' },
+        geometry: {
+          type: 'Point',
+          coordinates: r.centroid || [ (r.bounds[0][0]+r.bounds[1][0])/2, (r.bounds[0][1]+r.bounds[1][1])/2 ]
+        }
+      }));
+
+      map.current.addSource('india-region-labels', { type: 'geojson', data: { type: 'FeatureCollection', features: labelFeatures } });
+
+      map.current.addLayer({
+        id: 'india-region-labels',
+        type: 'symbol',
+        source: 'india-region-labels',
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-size': 12,
+          'text-offset': [0, 0.6],
+          'text-anchor': 'top'
+        },
+        paint: {
+          'text-color': '#ffffff'
+        }
+      });
 
       // Add threat zones source
       map.current.addSource('threat-zones', {
@@ -380,6 +461,8 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
       // Add click handler for ocean currents
       map.current.on('click', handleMapClick);
 
+      // draw/report tool initialization removed — mount it separately using MapDrawReportControl
+
       // Add popup interactions
       map.current.on('click', 'threat-zones-fill', (e) => {
         const properties = e.features[0].properties;
@@ -408,7 +491,28 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
       map.current.on('mouseleave', 'threat-zones-fill', () => {
         map.current.getCanvas().style.cursor = '';
       });
+
+      // Click on a region partition to select it
+      map.current.on('click', 'india-regions-partition', (e) => {
+        if (!e.features || e.features.length === 0) return;
+        const props = e.features[0].properties;
+        const id = props.id || props.name;
+        if (id) {
+          setSelectedRegionId(id);
+          const region = getRegionById(id);
+          if (region && region.bounds) {
+            map.current.fitBounds(region.bounds, { padding: 40, duration: 800 });
+          }
+        }
+      });
     });
+
+    // Fit to selected region initially (All India)
+    try {
+      map.current.fitBounds(INDIA_BOUNDS, { padding: 40, duration: 1000 });
+    } catch (e) {
+      console.warn('Could not fit bounds to India on init', e);
+    }
 
     map.current.on('move', () => {
       setLng(map.current.getCenter().lng.toFixed(4));
@@ -460,6 +564,36 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
       }
     };
   }, []);
+
+  // Update highlight filter when selectedRegionId changes
+  useEffect(() => {
+    // Ensure map and style are loaded before calling getStyle or setFilter
+    if (!map.current) return;
+
+    const applyFilter = () => {
+      try {
+        // Only set filter if layer exists
+        const style = map.current.isStyleLoaded && map.current.isStyleLoaded();
+        if (!style) return;
+        const layers = map.current.getStyle && typeof map.current.getStyle === 'function'
+          ? (() => { try { return map.current.getStyle().layers || []; } catch (e) { return []; } })()
+          : [];
+        const layerExists = layers.some(l => l.id === 'india-region-highlight');
+        if (layerExists) {
+          map.current.setFilter('india-region-highlight', ['==', ['get', 'id'], selectedRegionId]);
+        }
+      } catch (e) {
+        // ignore transient errors while style or layer is not yet ready
+      }
+    };
+
+    // Apply immediately (if possible)
+    applyFilter();
+
+    // Also attempt again after a short delay in case style was still loading
+    const t = setTimeout(applyFilter, 500);
+    return () => clearTimeout(t);
+  }, [selectedRegionId]);
 
   // Create threat zone popup content
   const createThreatZonePopup = (properties) => {
@@ -523,8 +657,9 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
 
   return (
     <div className="relative w-full h-full bg-gray-900">
-      {/* Map Container */}
-      <div ref={mapContainer} className="absolute inset-0" />
+  {/* Map Container */}
+  {/* ensure map canvas sits below modal/dialog layers by forcing a low z-index */}
+  <div ref={mapContainer} className="absolute inset-0 z-0" />
 
       {/* Toggle Panel Button */}
       <button
@@ -601,6 +736,40 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
               <div>Zoom: {zoom}</div>
             </div>
 
+            {/* Region selector */}
+            <div className="mb-4">
+              <label className="text-xs font-medium text-gray-600">Region</label>
+              <select
+                value={selectedRegionId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedRegionId(id);
+                  const region = getRegionById(id);
+                  if (map.current && region && region.bounds) {
+                    map.current.fitBounds(region.bounds, { padding: 40, duration: 800 });
+                  }
+                }}
+                className="mt-1 block w-full rounded-md border-gray-200 p-2 text-sm"
+              >
+                {REGIONS.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Region legend */}
+            <div className="mb-4">
+              <label className="text-xs font-medium text-gray-600">Legend</label>
+              <div className="mt-2 space-y-2">
+                {REGIONS.filter(r => r.id !== 'all-india').map(r => (
+                  <div key={r.id} className="flex items-center gap-2">
+                    <div style={{ width: 16, height: 12, background: r.color || '#60a5fa', borderRadius: 2, boxShadow: '0 1px 4px rgba(0,0,0,0.25)' }} />
+                    <div className="text-xs text-gray-700">{r.name}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Error Messages */}
             {locationError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -617,6 +786,8 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
         onClose={() => setIsOceanPanelOpen(false)}
         location={selectedCoordinates}
       />
+
+      {/* draw/report control intentionally not mounted here; use main Mapbox view for drawing to avoid map-container warnings */}
 
       {/* Threat Levels Legend */}
       <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-4">

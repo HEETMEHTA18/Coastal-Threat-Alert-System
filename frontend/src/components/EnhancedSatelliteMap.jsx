@@ -7,17 +7,26 @@ import {
   MapPin, Zap, Activity, Menu, X, Shield
 } from 'lucide-react';
 
-// Set Mapbox access token with validation
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiaGVldDExMSIsImEiOiJjbWZnemgzMGYwNjBoMm1zZ2Q5anZ3OGl3In0.NYVLSvDvQrspx-Adgb0FkQ';
+import FallbackMap from './FallbackMap';
 
-// Validate token format
-if (!MAPBOX_TOKEN || !MAPBOX_TOKEN.startsWith('pk.')) {
-  console.warn('⚠️ Invalid or missing Mapbox access token');
+// Read Mapbox access token from env (no hard-coded fallback)
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+import { INDIA_BOUNDS } from '../data/indiaRegions';
+if (!MAPBOX_TOKEN) {
+  console.warn('⚠️ VITE_MAPBOX_ACCESS_TOKEN is not set for EnhancedSatelliteMap');
 }
-
-mapboxgl.accessToken = MAPBOX_TOKEN;
+mapboxgl.accessToken = MAPBOX_TOKEN || '';
 
 const EnhancedSatelliteMap = () => {
+  // If token missing, render fallback to avoid repeated Mapbox initialization errors
+    const hasMapboxToken = !!(MAPBOX_TOKEN && MAPBOX_TOKEN.startsWith('pk.'));
+    if (!hasMapboxToken) {
+      // Helpful UX: show console instructions to set token and restart dev server
+      if (import.meta.env.DEV) {
+        console.warn('Mapbox token not configured. To enable maps set VITE_MAPBOX_ACCESS_TOKEN in `frontend/.env` and restart the dev server.');
+      }
+      return <FallbackMap />;
+    }
   const [map, setMap] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -105,6 +114,9 @@ const EnhancedSatelliteMap = () => {
             setIsLoading(false);
             setError(null);
             setRetryCount(0);
+
+            // Fit to India for default full-country view
+            try { mapInstance.fitBounds(INDIA_BOUNDS, { padding: 60, duration: 1000 }); } catch(e) {}
             
             // Start animation after layers are added
             setTimeout(() => {
@@ -213,6 +225,7 @@ const EnhancedSatelliteMap = () => {
       setMap(null);
     };
   }, []);
+
 
   // Add animated wave heatmap layer
   const addWaveHeatmapLayer = (mapInstance) => {
@@ -1630,6 +1643,8 @@ const EnhancedSatelliteMap = () => {
           </div>
         </div>
       )}
+
+      {/* Draw & Report control removed from Satellite view; available in Overview (SimpleInteractiveMap) */}
 
       {/* Unified Side Control Panel */}
       <div className={`absolute top-20 left-4 bg-slate-900/95 backdrop-blur-sm rounded-xl p-3 sm:p-4 text-white shadow-2xl border border-slate-700/50 max-w-72 z-40 

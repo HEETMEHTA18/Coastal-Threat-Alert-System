@@ -2,16 +2,22 @@
 // Connects to backend services for real data
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const NODE_API_URL = import.meta.env.VITE_NODE_API_URL || 'http://localhost:3001';
 
 class CTASApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
+    this.nodeURL = NODE_API_URL;
   }
 
   // Generic fetch wrapper with error handling
   async fetchAPI(endpoint, options = {}) {
     try {
-      const url = `${this.baseURL}${endpoint}`;
+      // Use Node.js backend for auth endpoints
+      const isAuthEndpoint = endpoint.startsWith('/auth');
+      const baseUrl = isAuthEndpoint ? this.nodeURL : this.baseURL;
+      const url = isAuthEndpoint ? `${baseUrl}/api${endpoint}` : `${baseUrl}${endpoint}`;
+      
       const defaultOptions = {
         headers: {
           'Content-Type': 'application/json',

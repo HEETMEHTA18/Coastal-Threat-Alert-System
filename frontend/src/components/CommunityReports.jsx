@@ -44,13 +44,11 @@ const CommunityReports = () => {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const response = await axios.get('/community-reports');
-        if (response.data.success) {
-          setReports(response.data.reports);
-          setFilteredReports(response.data.reports);
-        } else {
-          console.error('Failed to fetch reports:', response.data.message);
-        }
+        const response = await axios.get('/api/threatReports');
+        // threatReports endpoint returns array directly, not wrapped in success object
+        const reportsData = Array.isArray(response.data) ? response.data : [];
+        setReports(reportsData);
+        setFilteredReports(reportsData);
       } catch (error) {
         console.error('Error fetching reports:', error);
         setError(error.message);
@@ -242,7 +240,7 @@ const CommunityReports = () => {
 
   const handleStatusChange = async (reportId, newStatus) => {
     try {
-      await axios.patch(`/community-reports/${reportId}/status`, { 
+      await axios.patch(`/api/threatReports/${reportId}`, { 
         status: newStatus
       });
       

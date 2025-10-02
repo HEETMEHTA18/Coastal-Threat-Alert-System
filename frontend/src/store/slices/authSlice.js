@@ -2,6 +2,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// Use Node.js backend for auth endpoints
+const NODE_API_URL = import.meta.env.VITE_NODE_API_URL || 'http://localhost:3001';
 
 // Helper function to generate name from email
 const generateNameFromEmail = (email) => {
@@ -27,7 +29,7 @@ export const loginUser = createAsyncThunk(
   'auth/login',
   async ({ email, password }, { rejectWithValue }) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${NODE_API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,7 +80,7 @@ export const registerUser = createAsyncThunk(
   'auth/register',
   async ({ name, email, password, role = 'viewer', organization }, { rejectWithValue }) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      const response = await fetch(`${NODE_API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -201,22 +201,10 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
       // Prepare data for submission (no files)
       const completeFormData = { ...formData };
       delete completeFormData.media;
-      const response = await fetch('http://localhost:8000/api/community-reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportData: completeFormData }),
-      });
-
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response ok:', response.ok);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        console.error('❌ Server error response:', errorData);
-        throw new Error(errorData.message || 'Failed to submit report');
-      }
-
-      const result = await response.json();
+      // Use Node backend axios client
+  const nodeAxios = (await import('../services/nodeAxiosInstance')).default;
+  // POST may trigger SMS sending and other async work on server; increase timeout for this request
+  const { data: result } = await nodeAxios.post('/community-reports', { reportData: completeFormData }, { timeout: 60000 });
       console.log('✅ Success response:', result);
       
       // Call onSubmit immediately to update the reports list
@@ -232,12 +220,15 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
     } catch (error) {
       console.error('Submission error:', error);
       let errorMessage = 'Failed to submit report. Please try again.';
-      
-      if (error.message.includes('Network Error') || error.message.includes('fetch')) {
+
+      // Axios timeout manifests as code === 'ECONNABORTED'
+      if (error.code === 'ECONNABORTED' || (error.message && error.message.includes('timeout'))) {
+        errorMessage = 'Server is taking longer than expected to process the report. Submission may still have succeeded — check the Reports list in a moment.';
+      } else if (error.message && (error.message.includes('Network Error') || error.message.includes('fetch'))) {
         errorMessage = 'Network error. Please check your connection and try again.';
-      } else if (error.message.includes('validation')) {
+      } else if (error.message && error.message.includes('validation')) {
         errorMessage = 'Please check all required fields and try again.';
-      } else if (error.message.includes('Database')) {
+      } else if (error.message && error.message.includes('Database')) {
         errorMessage = 'Database error. Please contact support if this continues.';
       }
       

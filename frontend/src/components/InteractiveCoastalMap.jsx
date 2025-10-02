@@ -4,6 +4,8 @@ import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import coastalPredictionService from '../services/coastalPredictionService';
+import FallbackMap from './FallbackMap';
+import OSMFallbackMap from './OSMFallbackMap';
 import PredictionResultsPanel from './PredictionResultsPanel';
 import { 
   Map, 
@@ -18,10 +20,16 @@ import {
   BarChart3
 } from 'lucide-react';
 
-// Set your Mapbox access token
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiaGVldDExMSIsImEiOiJjbWZnemgzMGYwNjBoMm1zZ2Q5anZ3OGl3In0.NYVLSvDvQrspx-Adgb0FkQ';
+// Read Mapbox access token from env; the application expects a public token set at build-time
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+import { INDIA_BOUNDS } from '../data/indiaRegions';
 
 const InteractiveCoastalMap = () => {
+  if (!MAPBOX_TOKEN) {
+    console.warn('Mapbox token missing: set VITE_MAPBOX_ACCESS_TOKEN in frontend/.env and restart dev server to enable Mapbox maps.');
+    // Use the existing fallback UI when no token exists so the app doesn't attempt initialization
+    return <FallbackMap />;
+  }
   const [map, setMap] = useState(null);
   const [draw, setDraw] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,10 +59,13 @@ const InteractiveCoastalMap = () => {
   useEffect(() => {
     if (!mapContainer.current) return;
 
+    // Mapbox token is required and we already checked above; proceed to initialize
+
     try {
       console.log('🗺️ Initializing Interactive Coastal Map...');
 
       // Initialize Mapbox map
+      mapboxgl.accessToken = MAPBOX_TOKEN;
       const mapInstance = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/satellite-streets-v12',
@@ -65,6 +76,12 @@ const InteractiveCoastalMap = () => {
       });
 
       // Initialize drawing tools
+      // Remove any stale draw DOM nodes before adding a new control
+      try {
+        const existing = mapInstance.getContainer().querySelector('.mapbox-gl-draw');
+        if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      } catch (e) { /* ignore */ }
+
       const drawInstance = new MapboxDraw({
         displayControlsDefault: false,
         controls: {
@@ -77,6 +94,18 @@ const InteractiveCoastalMap = () => {
       });
 
       mapInstance.addControl(drawInstance, 'top-left');
+
+      // Raise draw control z-index so React overlays don't intercept clicks
+      try {
+        const ctrl = mapInstance.getContainer().querySelector('.mapbox-gl-draw');
+        if (ctrl) {
+          // walk up to the control container (mapboxgl-ctrl-top-left)
+          const parent = ctrl.closest('.mapboxgl-ctrl-top-left') || ctrl.parentNode;
+          if (parent && parent.style) parent.style.zIndex = '1200';
+          ctrl.style.zIndex = '1300';
+          ctrl.style.pointerEvents = 'auto';
+        }
+      } catch (e) {}
 
       // Add navigation controls
       mapInstance.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -146,6 +175,8 @@ const InteractiveCoastalMap = () => {
           });
         }
 
+        // Fit to India for full-country context
+        try { mapInstance.fitBounds(INDIA_BOUNDS, { padding: 40, duration: 800 }); } catch(e){}
         setIsLoading(false);
       });
 
@@ -183,7 +214,14 @@ const InteractiveCoastalMap = () => {
       setMap(mapInstance);
       setDraw(drawInstance);
 
-      return () => mapInstance.remove();
+      return () => {
+        try {
+          if (drawInstance) {
+            try { mapInstance.removeControl(drawInstance); } catch (e) {}
+          }
+        } catch (e) {}
+        try { mapInstance.remove(); } catch (e) {}
+      };
     } catch (error) {
       console.error('Map initialization error:', error);
       setError('Failed to initialize map');
@@ -283,6 +321,11 @@ const InteractiveCoastalMap = () => {
   };
 
   if (error) {
+    // If the only error is missing Mapbox token, render the friendly fallback map UI
+    if (error === 'Mapbox token not configured') {
+      return <FallbackMap />;
+    }
+
     return (
       <div className="h-full flex items-center justify-center bg-red-50">
         <div className="text-center p-6">
@@ -309,8 +352,8 @@ const InteractiveCoastalMap = () => {
         </div>
       )}
 
-      {/* Drawing Controls */}
-      <div className="absolute top-4 left-20 bg-white rounded-lg shadow-lg p-2 z-10">
+  {/* Drawing Controls */}
+  <div className="absolute top-4 left-24 bg-white rounded-lg shadow-lg p-2 z-20 pointer-events-auto">
         <div className="flex space-x-1">
           <button
             onClick={() => changeDrawMode('simple_select')}

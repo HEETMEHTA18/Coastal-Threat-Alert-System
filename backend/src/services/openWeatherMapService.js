@@ -120,6 +120,76 @@ class OpenWeatherMapService {
     }
   }
 
+  // New: get forecast by latitude/longitude (5-day / 3-hour data grouped by day)
+  async getForecastByCoordinates(lat, lon, days = 5) {
+    try {
+      const url = `${this.baseUrl}/forecast?lat=${lat}&lon=${lon}&appid=${this.apiKey}&units=metric`;
+      console.log(`📅 Fetching ${days}-day forecast for coordinates: ${lat}, ${lon}...`);
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`OpenWeatherMap API Error ${response.status}: ${errorData.message || 'Unknown error'}`);
+      }
+
+      const data = await response.json();
+
+      // Defensive: ensure list exists
+      const list = Array.isArray(data.list) ? data.list : [];
+
+      // Group forecasts by day
+      const dailyForecasts = {};
+
+      list.forEach(item => {
+        try {
+          const date = item.dt_txt ? item.dt_txt.split(' ')[0] : (new Date(item.dt * 1000)).toISOString().split('T')[0];
+          if (!dailyForecasts[date]) {
+            dailyForecasts[date] = {
+              date: date,
+              temps: [],
+              conditions: [],
+              humidity: [],
+              pressure: [],
+              windSpeed: [],
+              precipitation: 0
+            };
+          }
+
+          if (item.main && typeof item.main.temp === 'number') dailyForecasts[date].temps.push(item.main.temp);
+          if (item.weather && item.weather[0]) dailyForecasts[date].conditions.push(item.weather[0].description);
+          if (item.main && typeof item.main.humidity === 'number') dailyForecasts[date].humidity.push(item.main.humidity);
+          if (item.main && typeof item.main.pressure === 'number') dailyForecasts[date].pressure.push(item.main.pressure);
+          if (item.wind && typeof item.wind.speed === 'number') dailyForecasts[date].windSpeed.push(item.wind.speed);
+
+          if (item.rain) {
+            dailyForecasts[date].precipitation += item.rain['3h'] || 0;
+          }
+        } catch (inner) {
+          // ignore malformed items
+        }
+      });
+
+      // Process daily data
+      const forecast = Object.values(dailyForecasts).slice(0, days).map(day => ({
+        date: day.date,
+        maxTemp: day.temps.length ? Math.round(Math.max(...day.temps)) : null,
+        minTemp: day.temps.length ? Math.round(Math.min(...day.temps)) : null,
+        avgTemp: day.temps.length ? Math.round(day.temps.reduce((a, b) => a + b, 0) / day.temps.length) : null,
+        condition: day.conditions.length ? day.conditions[0] : '',
+        humidity: day.humidity.length ? Math.round(day.humidity.reduce((a, b) => a + b, 0) / day.humidity.length) : null,
+        pressure: day.pressure.length ? Math.round(day.pressure.reduce((a, b) => a + b, 0) / day.pressure.length) : null,
+        windSpeed: day.windSpeed.length ? Math.round(day.windSpeed.reduce((a, b) => a + b, 0) / day.windSpeed.length) : null,
+        precipitation: Math.round(day.precipitation * 10) / 10
+      }));
+
+      return forecast;
+    } catch (error) {
+      console.error('Forecast by coordinates error:', error.message);
+      throw error;
+    }
+  }
+
   async getCoordinates(city) {
     try {
       const url = `${this.geoUrl}/direct?q=${city}&limit=1&appid=${this.apiKey}`;
@@ -152,27 +222,43 @@ class OpenWeatherMapService {
     try {
       const url = `${this.baseUrl}/weather?lat=${lat}&lon=${lon}&appid=${this.apiKey}&units=metric`;
       console.log(`🌍 Fetching weather for coordinates: ${lat}, ${lon}`);
-      
+
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(`OpenWeatherMap API Error ${response.status}: ${errorData.message}`);
       }
-      
+
       const data = await response.json();
-      
-      return {
+
+      // Normalize the response so callers (including the frontend proxy) can rely on
+      // a consistent shape: wind: { speed, deg }, weather: [...], main: {...}, name, coords
+      const normalized = {
+        // legacy/alternate fields (preserve existing names used elsewhere)
         location: data.name || 'Unknown Location',
         coordinates: { lat: data.coord.lat, lon: data.coord.lon },
-        temperature: Math.round(data.main.temp),
-        condition: data.weather[0].description,
-        humidity: data.main.humidity,
-        pressure: data.main.pressure,
-        windSpeed: data.wind.speed,
+        // normalized/expected fields
+        name: data.name || 'Unknown Location',
+        coords: { lat: data.coord.lat, lon: data.coord.lon },
+        main: data.main || {},
+        weather: data.weather || [],
+        wind: {
+          speed: data.wind?.speed ?? null,
+          deg: data.wind?.deg ?? null
+        },
+        // keep some convenience legacy aliases
+        windSpeed: data.wind?.speed ?? null,
+        windDirection: data.wind?.deg ?? null,
+        temperature: Math.round(data.main?.temp ?? NaN),
+        condition: data.weather && data.weather[0] ? data.weather[0].description : '',
+        humidity: data.main?.humidity ?? null,
+        pressure: data.main?.pressure ?? null,
         timestamp: new Date().toISOString(),
         source: 'openweathermap'
       };
+
+      return normalized;
     } catch (error) {
       console.error('Weather by coordinates error:', error.message);
       throw error;

@@ -1,0 +1,22 @@
+# Render deployment configuration for AI Models service
+services:
+  - type: web
+    name: ctas-ai-models
+    env: python
+    plan: starter
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn api.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: NODE_ENV
+        value: production
+      - key: OPENAI_API_KEY
+        sync: false  # Set this in Render dashboard
+      - key: OPENWEATHER_API_KEY
+        sync: false  # Set this in Render dashboard
+    healthCheckPath: "/api/health"
+    disk:
+      name: ai-models-disk
+      sizeGB: 1
+      mountPath: /app/data

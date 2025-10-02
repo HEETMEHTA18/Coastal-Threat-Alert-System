@@ -35,7 +35,12 @@ const ProtectedRoute = ({ children }) => {
 // Main App Wrapper
 function AppWithRouter() {
   return (
-    <Router>
+    <Router
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }}
+    >
       <AppContent />
     </Router>
   );

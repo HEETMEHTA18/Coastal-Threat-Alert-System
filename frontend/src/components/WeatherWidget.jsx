@@ -4,7 +4,7 @@ import {
   AlertTriangle, Info, ChevronDown, ChevronUp, Zap, Waves, Snowflake, CloudDrizzle
 } from 'lucide-react';
 
-const WEATHER_API_KEY = import.meta.env.VITE_OPENWEATHERMAP_API_KEY;
+import weatherService from '../services/weatherService';
 
 export default function WeatherWidget() {
   // Log API key availability only once on mount
@@ -16,13 +16,18 @@ export default function WeatherWidget() {
   const [alerts, setAlerts] = useState([]);
   const [showFAQs, setShowFAQs] = useState(false);
 
+  // Determine whether we have any weather configuration available:
+  // - Prefer a server-side proxy (VITE_NODE_API_URL)
+  // - Otherwise a client-side OpenWeather API key (VITE_OPENWEATHER_API_KEY)
+  const hasWeatherConfig = !!(import.meta.env.VITE_NODE_API_URL || import.meta.env.VITE_OPENWEATHER_API_KEY);
+
   // Log API key status only once
   useEffect(() => {
     if (!apiKeyLogged) {
-      console.log('🌦️ WeatherWidget API key available:', !!WEATHER_API_KEY);
+      console.log('🌦️ WeatherWidget: proxy/url or key available:', hasWeatherConfig);
       setApiKeyLogged(true);
     }
-  }, [apiKeyLogged]);
+  }, [apiKeyLogged, hasWeatherConfig]);
 
   // Weather FAQs
   const weatherFAQs = [
@@ -57,7 +62,7 @@ export default function WeatherWidget() {
     const temp = weatherData.main?.temp;
     const windSpeed = weatherData.wind?.speed;
     const humidity = weatherData.main?.humidity;
-    const condition = weatherData.weather?.[0]?.main?.toLowerCase();
+  const condition = weatherData.weather?.[0]?.main?.toLowerCase();
 
     // Temperature alerts
     if (temp > 35) {
@@ -93,7 +98,7 @@ export default function WeatherWidget() {
     }
 
     // Weather condition alerts
-    if (condition.includes('storm') || condition.includes('thunder')) {
+    if (condition && (condition.includes('storm') || condition.includes('thunder'))) {
       alerts.push({
         type: 'danger',
         icon: Zap,
@@ -104,7 +109,7 @@ export default function WeatherWidget() {
       });
     }
 
-    if (condition.includes('rain') && windSpeed > 7) {
+    if (condition && condition.includes('rain') && windSpeed > 7) {
       alerts.push({
         type: 'caution',
         icon: CloudDrizzle,
@@ -146,34 +151,35 @@ export default function WeatherWidget() {
   };
 
   const fetchWeather = async (lat, lng, locationName = '') => {
-    if (!WEATHER_API_KEY) {
-      console.error('Weather API key not configured');
-      return;
-    }
-
     setLoading(true);
     try {
-      // Current weather
-      const weatherRes = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&units=metric&appid=${WEATHER_API_KEY}`
-      );
-      const weatherData = await weatherRes.json();
+      const weatherData = await weatherService.getCurrentWeather(lat, lng);
+      const forecastData = await weatherService.getWeatherForecast(lat, lng);
+      console.log('[WeatherWidget] fetchWeather:', { lat, lng, locationName, weatherData, forecastData });
+      if (weatherData) {
+        setWeather(weatherData);
+        // Prefer: provided locationName (from reverse geocoding), then OpenWeather 'name',
+        // then any provider-specific location field, then preserve existing name.
+        let derivedName = locationName;
+        if (!derivedName || derivedName === 'Your Current Location') {
+          derivedName = weatherData.name || weatherData.location?.name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        }
+        // Never show 'Your Current Location' in the UI
+        if (derivedName === 'Your Current Location') {
+          derivedName = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        }
+        console.log('[WeatherWidget] derived location name:', derivedName);
+        setLocation({ lat, lng, name: derivedName });
+      }
+      if (forecastData) {
+        console.log('[WeatherWidget] Setting forecast:', forecastData);
+        setForecast(forecastData);
+      }
 
-      // 5-day forecast
-      const forecastRes = await fetch(
-        `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lng}&units=metric&appid=${WEATHER_API_KEY}`
-      );
-      const forecastData = await forecastRes.json();
-
-      setWeather(weatherData);
-      setForecast(forecastData);
-      setLocation({ lat, lng, name: locationName || weatherData.name });
-      
-      // Generate alerts based on weather data
       const weatherAlerts = generateWeatherAlerts(weatherData);
       setAlerts(weatherAlerts);
     } catch (error) {
-      console.error('Error fetching weather:', error);
+      console.error('[WeatherWidget] Error fetching weather:', error);
     }
     setLoading(false);
   };
@@ -187,19 +193,18 @@ export default function WeatherWidget() {
           
           // Try to get city name from reverse geocoding
           try {
-            const response = await fetch(
-              `https://api.openweathermap.org/geo/1.0/reverse?lat=${latitude}&lon=${longitude}&limit=1&appid=${WEATHER_API_KEY}`
-            );
-            const locationData = await response.json();
-            const cityName = locationData[0]?.name || 'Your Current Location';
+            // Use weatherService for reverse geocoding if available via server proxy; otherwise fallback
+            const coordsName = await (weatherService.getLocationName ? weatherService.getLocationName(latitude, longitude) : null);
+            const cityName = coordsName || 'Your Current Location';
+            console.log('[WeatherWidget] getCurrentLocation resolved:', { latitude, longitude, coordsName, cityName });
             fetchWeather(latitude, longitude, cityName);
           } catch (error) {
-            console.error('Error getting city name:', error);
+            console.error('[WeatherWidget] Error getting city name:', error);
             fetchWeather(latitude, longitude, 'Your Current Location');
           }
         },
         (error) => {
-          console.error('Error getting location:', error);
+          console.error('[WeatherWidget] Error getting location:', error);
           fetchWeather(location.lat, location.lng, 'Mumbai (Default)');
         }
       );
@@ -212,7 +217,7 @@ export default function WeatherWidget() {
     getCurrentLocation();
   }, []);
 
-  if (!WEATHER_API_KEY) {
+  if (!hasWeatherConfig) {
     return (
       <div 
         className="rounded-xl p-6 border"
@@ -222,7 +227,10 @@ export default function WeatherWidget() {
           color: 'var(--error-color)'
         }}
       >
-        <p>Weather API key not configured. Please add VITE_OPENWEATHERMAP_API_KEY to your .env file.</p>
+        <p>
+          Weather configuration is missing. Provide a server proxy URL via `VITE_NODE_API_URL` (recommended)
+          or set a client key `VITE_OPENWEATHERMAP_API_KEY` in `frontend/.env`.
+        </p>
       </div>
     );
   }
@@ -418,9 +426,9 @@ export default function WeatherWidget() {
             5-Day Forecast
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {forecast.list.filter((_, index) => index % 8 === 0).slice(0, 5).map((item, index) => {
-              const date = new Date(item.dt * 1000);
-              const IconComponent = getWeatherIcon(item.weather[0].description);
+            {Array.isArray(forecast) && forecast.slice(0, 5).map((day, index) => {
+              const date = new Date(day.date);
+              const IconComponent = getWeatherIcon(day.condition || day.mainCondition || '');
               return (
                 <div 
                   key={index} 
@@ -435,10 +443,10 @@ export default function WeatherWidget() {
                   </div>
                   <IconComponent className="w-10 h-10 text-yellow-500 mx-auto mb-3" />
                   <div style={{ color: 'var(--text-primary)' }} className="text-lg font-bold mb-1">
-                    {Math.round(item.main.temp)}°
+                    {day.maxTemp !== undefined && day.maxTemp !== null ? `${day.maxTemp}°` : '--'}
                   </div>
                   <div style={{ color: 'var(--text-muted)' }} className="text-xs capitalize font-medium">
-                    {item.weather[0].description}
+                    {day.condition || day.mainCondition || '--'}
                   </div>
                 </div>
               );

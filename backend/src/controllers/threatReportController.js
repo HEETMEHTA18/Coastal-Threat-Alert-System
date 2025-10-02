@@ -1,8 +1,9 @@
-const ThreatReport = require('../models/ThreatReport');
+// Use the CommunityReport model (where your 13 reports are stored in 'communityreports' collection)
+const Report = require('../../models/CommunityReport');
 
 exports.createReport = async (req, res) => {
   try {
-    const report = new ThreatReport(req.body);
+    const report = new Report(req.body);
     await report.save();
     res.status(201).json(report);
   } catch (err) {
@@ -12,16 +13,18 @@ exports.createReport = async (req, res) => {
 
 exports.getReports = async (req, res) => {
   try {
-    const reports = await ThreatReport.find();
+    const reports = await Report.find().sort({ createdAt: -1 }); // Sort by newest first
+    console.log(`Found ${reports.length} reports in database`);
     res.json(reports);
   } catch (err) {
+    console.error('Error fetching reports:', err);
     res.status(500).json({ error: err.message });
   }
 };
 
 exports.getReport = async (req, res) => {
   try {
-    const report = await ThreatReport.findById(req.params.id);
+    const report = await Report.findById(req.params.id);
     if (!report) return res.status(404).json({ error: 'Not found' });
     res.json(report);
   } catch (err) {
@@ -31,7 +34,7 @@ exports.getReport = async (req, res) => {
 
 exports.updateReport = async (req, res) => {
   try {
-    const report = await ThreatReport.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const report = await Report.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!report) return res.status(404).json({ error: 'Not found' });
     res.json(report);
   } catch (err) {
@@ -41,7 +44,7 @@ exports.updateReport = async (req, res) => {
 
 exports.deleteReport = async (req, res) => {
   try {
-    const report = await ThreatReport.findByIdAndDelete(req.params.id);
+    const report = await Report.findByIdAndDelete(req.params.id);
     if (!report) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'Deleted' });
   } catch (err) {

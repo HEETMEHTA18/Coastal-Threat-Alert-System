@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import FallbackMap from './FallbackMap';
+import OSMFallbackMap from './OSMFallbackMap';
+import { INDIA_BOUNDS, REGIONS, getRegionById } from '../data/indiaRegions';
+// import MapDrawReportControl from './MapDrawReportControl';
 
-// Set your Mapbox access token
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiaGVldDExMSIsImEiOiJjbWZnemgzMGYwNjBoMm1zZ2Q5anZ3OGl3In0.NYVLSvDvQrspx-Adgb0FkQ';
+// Read Mapbox token from env (build-time). The app expects a public Mapbox token to be
+// provided in `frontend/.env` as `VITE_MAPBOX_ACCESS_TOKEN` when Mapbox maps are desired.
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
 const MapboxSatelliteMap = () => {
   const [map, setMap] = useState(null);
@@ -12,23 +17,53 @@ const MapboxSatelliteMap = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [markers, setMarkers] = useState([]);
   const mapContainer = useRef(null);
+  const [runtimeTokenTried, setRuntimeTokenTried] = useState(false);
 
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    try {
-      console.log('🗺️ Initializing Mapbox map...');
-      console.log('🔑 Mapbox token:', mapboxgl.accessToken ? 'Set' : 'Missing');
+    // Require the build-time token. If it's missing, show an explicit error so the
+    // developer knows to set `VITE_MAPBOX_ACCESS_TOKEN` in `frontend/.env` and restart Vite.
+    const tokenToUse = MAPBOX_TOKEN;
+    if (!tokenToUse) {
+      console.warn('Mapbox token missing: set VITE_MAPBOX_ACCESS_TOKEN in frontend/.env and restart dev server.');
+      setIsLoading(false);
+      setError('Mapbox token not configured');
+      return;
+    }
 
-      // Initialize Mapbox map
-      const mapInstance = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/satellite-streets-v12', // Satellite view
-        center: [72.8777, 19.0760], // Mumbai coordinates (lng, lat)
-        zoom: 10,
-        bearing: 0,
-        pitch: 0
-      });
+    // Use async init so we can validate the token by requesting the style manifest first.
+    let mounted = true;
+    const init = async () => {
+      try {
+        if (import.meta.env.DEV) {
+          const masked = tokenToUse ? (tokenToUse.slice(0, 8) + '...' + tokenToUse.slice(-6)) : null;
+          console.log('🗺️ Initializing Mapbox map... token:', masked);
+        }
+
+        // Validate style endpoint with provided token to get early actionable errors (401/403/429/etc.)
+        const styleUrl = `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12?access_token=${tokenToUse}`;
+        const resp = await fetch(styleUrl, { method: 'GET' });
+        if (!mounted) return;
+        if (!resp.ok) {
+          let msg = `Mapbox style check failed: ${resp.status} ${resp.statusText}`;
+          try { const body = await resp.json(); if (body && body.message) msg += ` - ${body.message}`; } catch (e) {}
+          setError(msg);
+          setIsLoading(false);
+          return;
+        }
+
+        mapboxgl.accessToken = tokenToUse;
+
+        // Initialize Mapbox map
+        const mapInstance = new mapboxgl.Map({
+          container: mapContainer.current,
+          style: 'mapbox://styles/mapbox/satellite-streets-v12', // Satellite view
+          center: [72.8777, 19.0760], // Mumbai coordinates (lng, lat)
+          zoom: 10,
+          bearing: 0,
+          pitch: 0
+        });
 
       // Add navigation controls
       mapInstance.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -58,26 +93,53 @@ const MapboxSatelliteMap = () => {
 
         // Add coastal threat data layers
         addThreatDataLayers(mapInstance);
+
+        // Fit to India by default for broader context
+        try {
+          mapInstance.fitBounds(INDIA_BOUNDS, { padding: 40, duration: 800 });
+        } catch (e) {
+          // ignore
+        }
       });
 
       mapInstance.on('error', (e) => {
-        console.error('Mapbox error:', e);
-        setError('Failed to load map');
-        setIsLoading(false);
+        try {
+          // Extract human-readable message from known properties
+          const underlying = e && (e.error || e.originalEvent || e.reason || e);
+          let message = 'Failed to load map';
+          if (underlying) {
+            if (typeof underlying === 'string') message = underlying;
+            else if (underlying.message) message = underlying.message;
+            else if (underlying.status && underlying.statusText) message = `${underlying.status} ${underlying.statusText}`;
+            else message = JSON.stringify(underlying);
+          }
+          console.error('Mapbox error event:', message, e);
+          setError(`Failed to load map: ${message}`);
+        } catch (err) {
+          console.error('Error handling Mapbox error event:', err, e);
+          setError('Failed to load map');
+        } finally {
+          setIsLoading(false);
+        }
       });
 
-      setMap(mapInstance);
+        setMap(mapInstance);
 
-      return () => {
-        if (mapInstance) {
-          mapInstance.remove();
-        }
-      };
-    } catch (err) {
-      console.error('❌ Error initializing Mapbox:', err);
-      setError('Failed to initialize Mapbox map: ' + err.message);
-      setIsLoading(false);
-    }
+        return () => {
+          if (mapInstance) {
+            mapInstance.remove();
+          }
+        };
+      } catch (err) {
+        console.error('❌ Error initializing Mapbox:', err);
+        setError('Failed to initialize Mapbox map: ' + (err.message || String(err)));
+        setIsLoading(false);
+      }
+    };
+
+    init();
+
+    return () => { mounted = false; };
   }, []);
 
   const addThreatDataLayers = (mapInstance) => {
@@ -214,11 +276,28 @@ const MapboxSatelliteMap = () => {
   };
 
   if (error) {
+    if (error === 'Mapbox token not configured' || error === 'Mapbox fallback to OSM requested') {
+        // Prefer a lightweight OSM iframe fallback when Mapbox token is absent
+        return <OSMFallbackMap />;
+    }
+    const showRetry = () => {
+      setError(null);
+      setIsLoading(true);
+      // trigger effect to re-init by toggling a trivial state - simplest is to setMap(null)
+      setMap(null);
+      // allow effect to re-run by briefly clearing container
+      setTimeout(() => setIsLoading(true), 50);
+    };
+
     return (
       <div className="w-full h-full flex items-center justify-center bg-slate-800 text-red-400">
         <div className="text-center">
           <p className="text-lg font-semibold">Map Error</p>
-          <p className="text-sm">{error}</p>
+          <p className="text-sm mb-4">{error}</p>
+          <div className="flex justify-center gap-3">
+            <button onClick={showRetry} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Retry</button>
+            <button onClick={() => setError('Mapbox fallback to OSM requested') } className="px-4 py-2 bg-gray-600 text-white rounded-lg">Use OSM Fallback</button>
+          </div>
         </div>
       </div>
     );
@@ -263,6 +342,26 @@ const MapboxSatelliteMap = () => {
 
       {/* Map Container */}
       <div ref={mapContainer} className="w-full h-full" />
+
+      {/* Map Draw + Report control for Overview -> Mapbox tab */}
+        {/* Removed MapDrawReportControl usage */}
+
+      {/* Region Selector Overlay */}
+      <div className="absolute top-4 right-4 z-40 bg-white/90 rounded p-2 shadow">
+        <select onChange={(e) => {
+            const id = e.target.value;
+            const region = getRegionById(id);
+            if (region && map) {
+              try {
+                map.flyTo({ center: [(region.bounds[0][0] + region.bounds[1][0]) / 2, (region.bounds[0][1] + region.bounds[1][1]) / 2], zoom: 7, duration: 800 });
+              } catch (err) {
+                console.warn('Region flyTo failed', err);
+              }
+            }
+          }} className="text-sm p-1">
+          {REGIONS.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+        </select>
+      </div>
     </div>
   );
 };

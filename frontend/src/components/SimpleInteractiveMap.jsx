@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import FallbackMap from './FallbackMap';
+import OSMFallbackMap from './OSMFallbackMap';
 import { 
   Map, 
   Square, 
@@ -14,8 +16,9 @@ import {
   BarChart3
 } from 'lucide-react';
 
-// Set your Mapbox access token
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiaGVldDExMSIsImEiOiJjbWZnemgzMGYwNjBoMm1zZ2Q5anZ3OGl3In0.NYVLSvDvQrspx-Adgb0FkQ';
+// Read Mapbox token from env without fallback
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+import { INDIA_BOUNDS } from '../data/indiaRegions';
 
 const SimpleInteractiveMap = () => {
   const [map, setMap] = useState(null);
@@ -50,8 +53,17 @@ const SimpleInteractiveMap = () => {
   useEffect(() => {
     if (!mapContainer.current) return;
 
+    // If token missing, show FallbackMap instead of initializing mapbox
+    if (!MAPBOX_TOKEN) {
+      console.warn('Mapbox token missing: rendering FallbackMap.');
+      setIsLoading(false);
+      setError('Mapbox token not configured');
+      return;
+    }
+
     try {
       console.log('🗺️ Initializing Interactive Coastal Map...');
+      mapboxgl.accessToken = MAPBOX_TOKEN;
 
       // Initialize Mapbox map
       const mapInstance = new mapboxgl.Map({
@@ -137,6 +149,8 @@ const SimpleInteractiveMap = () => {
           generateClickPrediction(e.lngLat);
         });
 
+        // Fit to India by default
+        try { mapInstance.fitBounds(INDIA_BOUNDS, { padding: 40, duration: 800 }); } catch (e) {}
         setIsLoading(false);
       });
 
@@ -256,6 +270,10 @@ const SimpleInteractiveMap = () => {
   };
 
   if (error) {
+    if (error === 'Mapbox token not configured') {
+      return <OSMFallbackMap />;
+    }
+
     return (
       <div className="h-full flex items-center justify-center bg-red-50">
         <div className="text-center p-6">
@@ -303,6 +321,8 @@ const SimpleInteractiveMap = () => {
           )}
         </div>
       </div>
+
+      {/* Map Draw + Report control removed */}
 
       {/* Legend */}
       <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-4 z-10 max-w-xs">

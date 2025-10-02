@@ -1,0 +1,34 @@
+# Render.yaml - Backend deployment configuration
+version: "1"
+
+services:
+  # Backend Node.js service
+  - type: web
+    name: ctas-backend
+    runtime: node
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: CORS_ORIGINS
+        value: "https://coastal-threat-alert-system-two.vercel.app"
+      # These should be set in Render dashboard:
+      # - MONGODB_URI (from your MongoDB Atlas)
+      # - JWT_SECRET (generate a secure secret)
+      # - OPENWEATHER_API_KEY (your OpenWeather API key)
+      # - NOAA_CDO_API_KEY (your NOAA API key)
+
+  # Python AI backend service
+  - type: web  
+    name: ctas-ai-backend
+    runtime: python
+    plan: free
+    buildCommand: cd ai-models && pip install -r requirements.txt
+    startCommand: cd ai-models && python -m uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PORT
+        value: 10000
