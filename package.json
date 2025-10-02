@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "description": "Coastal Threat Alert System - Full Stack Application",
   "scripts": {
-    "install-backend": "cd backend && npm install",
-    "install-ai": "cd ai-models && pip install -r requirements.txt",
-    "build": "npm run install-backend && npm run install-ai",
-    "start": "node backend/server.js & cd ai-models && uvicorn api.main:app --host 0.0.0.0 --port 8000",
-    "start-backend": "cd backend && node server.js",
-    "start-ai": "cd ai-models && uvicorn api.main:app --host 0.0.0.0 --port 8000"
+    "install-backend": "test -d backend && cd backend && npm install || echo 'Backend directory not found'",
+    "install-ai": "test -d ai-models && cd ai-models && pip install -r requirements.txt || echo 'AI models directory not found'",
+    "build": "chmod +x build.sh && ./build.sh",
+    "start": "chmod +x start.sh && ./start.sh",
+    "start-backend": "test -d backend && cd backend && node server.js || echo 'Backend directory not found'",
+    "start-ai": "test -d ai-models && cd ai-models && uvicorn api.main:app --host 0.0.0.0 --port 8000 || echo 'AI models directory not found'"
   },
   "repository": {
     "type": "git",
