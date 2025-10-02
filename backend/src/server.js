@@ -15,6 +15,12 @@ if (process.env.NODE_ENV !== 'production') {
 
 const connectDB = require('./lib/db.js');
 const app = express();
+
+// Trust proxy settings for production deployment (Render, Heroku, etc.)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1); // Trust first proxy
+}
+
 // Use a separate default port for the Node backend in local development to
 // avoid colliding with the Python/uvicorn service which uses port 8000.
 const PORT = process.env.PORT || 3001;
