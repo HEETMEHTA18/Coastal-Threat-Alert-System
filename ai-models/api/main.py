@@ -99,18 +99,19 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+# Get allowed origins from environment or use defaults
+allowed_origins_str = os.getenv(
+    'ALLOWED_ORIGINS',
+    'http://localhost:3000,http://localhost:5173,http://localhost:5175,http://localhost:5000'
+)
+allowed_origins = [origin.strip() for origin in allowed_origins_str.split(',')]
+
+logger.info(f"🔐 CORS enabled for origins: {allowed_origins}")
 
 # Add CORS middleware (must be before endpoints)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:5175",
-        "http://localhost:5000",
-        "https://coastal-threat-alert-system-two.vercel.app",
-        "https://coastal-threat-alert-system-ctq6.onrender.com"
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

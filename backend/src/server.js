@@ -31,12 +31,13 @@ connectDB();
 // Security Middleware
 app.use(helmet());
 
-// CORS Configuration - enable for frontend dev and production origins
+// CORS Configuration - Use environment variable for allowed origins
+const allowedOrigins = process.env.CORS_ORIGINS 
+  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+  : ['http://localhost:5173', 'http://localhost:3000'];
+
 const corsOptions = {
-  origin: [
-    'https://coastal-threat-alert-system-two.vercel.app',
-    'http://localhost:5173'
-  ],
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
@@ -50,6 +51,8 @@ const corsOptions = {
   preflightContinue: false,
   maxAge: 86400
 };
+
+console.log('🔐 CORS enabled for origins:', allowedOrigins);
 
 // Apply CORS middleware early so all endpoints (including /api/health) return CORS headers
 app.use(cors(corsOptions));
