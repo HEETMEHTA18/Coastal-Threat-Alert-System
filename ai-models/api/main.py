@@ -125,10 +125,37 @@ alert_prediction_model = None
 try:
     import joblib
     import numpy as np
-    # Model is in parent directory (ai-models/alert_model.pkl)
-    model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'alert_model.pkl')
-    alert_prediction_model = joblib.load(model_path)
-    logger.info("✅ Alert prediction model loaded successfully")
+    
+    # Try multiple possible locations for the model file
+    possible_paths = [
+        # Local development (api/main.py -> ../alert_model.pkl)
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), 'alert_model.pkl'),
+        # Production Render (working directory might be ai-models/)
+        os.path.join(os.getcwd(), 'alert_model.pkl'),
+        # Absolute path from project root
+        '/opt/render/project/src/alert_model.pkl',
+        # One level up
+        os.path.join(os.path.dirname(os.getcwd()), 'alert_model.pkl'),
+    ]
+    
+    model_loaded = False
+    for model_path in possible_paths:
+        if os.path.exists(model_path):
+            try:
+                alert_prediction_model = joblib.load(model_path)
+                logger.info(f"✅ Alert prediction model loaded from: {model_path}")
+                model_loaded = True
+                break
+            except Exception as load_error:
+                logger.warning(f"Failed to load from {model_path}: {load_error}")
+                continue
+    
+    if not model_loaded:
+        logger.warning(f"⚠️ Alert model not found in any of these locations: {possible_paths}")
+        logger.info("📝 Current working directory: " + os.getcwd())
+        logger.info("📝 Script directory: " + os.path.dirname(os.path.abspath(__file__)))
+        logger.info("📝 Files in current directory: " + str(os.listdir(os.getcwd())[:10]))
+        
 except Exception as e:
     logger.warning(f"⚠️ Could not load alert prediction model: {e}")
 
@@ -1018,10 +1045,12 @@ async def retrain_model(model_name: str, background_tasks: BackgroundTasks):
     }
 
 if __name__ == "__main__":
+    import os
+    port = int(os.getenv("PORT", 8000))
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
-        reload=True,
+        port=port,
+        reload=False,  # Disable reload in production
         log_level="info"
     )

@@ -358,16 +358,15 @@ sklearn-env/
 venv/
 env/
 
-# AI Model files (large binary files)
-*.pkl
+# AI Model files (large binary files) - EXCEPT trained models needed for production
 *.joblib
 *.h5
 *.pt
 *.pth
 *.onnx
-# ai-models/*.pkl  # Allow alert_model.pkl for production
 ai-models/models/*.pkl
-!ai-models/alert_model.pkl  # Explicitly allow this file
+# Allow trained model files in ai-models/ root for production deployment
+!ai-models/*.pkl
 
 # Large datasets
 *.csv
