@@ -486,9 +486,10 @@ Ask: "Show mangrove health this month"`
 
             <button
               onClick={async () => {
-                // ping the backend via the Vite proxy
+                // Check backend health via Node API
                 try {
-                  const res = await fetch('/api/ping');
+                  const nodeBase = import.meta.env.VITE_NODE_API_URL || 'http://localhost:3001';
+                  const res = await fetch(`${nodeBase}/api/health`);
                   const body = await res.json().catch(() => null);
                   setMessages(prev => [...prev, {
                     id: Date.now(),

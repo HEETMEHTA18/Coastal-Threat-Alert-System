@@ -1,5 +1,5 @@
 // Use the CommunityReport model (where your 13 reports are stored in 'communityreports' collection)
-const Report = require('../../models/CommunityReport');
+const Report = require('../models/CommunityReport');
 
 exports.createReport = async (req, res) => {
   try {

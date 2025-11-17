@@ -7,9 +7,9 @@ import joblib
 from feature_vector import create_feature_vector
 
 # --- CONFIG ---
-HISTORICAL_WEATHER_PATH = 'weather_data_with_rainfall.csv'  # For rain alert
-CURRENTS_DATA_PATH = 'final_training_dataset.csv'           # For currents/sea-level
-CHATBOT_DATA_PATH = 'Dataset_for_chatbot.csv'               # For additional features
+HISTORICAL_WEATHER_PATH = '../weather_data_with_rainfall.csv'  # For rain alert
+CURRENTS_DATA_PATH = '../final_training_dataset.csv'           # For currents/sea-level
+CHATBOT_DATA_PATH = '../Dataset_for_chatbot.csv'               # For additional features
 
 # --- 1. Rain Alert Classifier ---
 def train_rain_classifier():

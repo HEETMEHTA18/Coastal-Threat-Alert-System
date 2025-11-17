@@ -13,6 +13,15 @@ module.exports = {
         'blob': 'blob 7s infinite',
         'float': 'float 6s ease-in-out infinite',
         'pulse-glow': 'pulse-glow 3s ease-in-out infinite',
+        'slide-in-right': 'slide-in-right 0.5s ease-out',
+        'slide-in-left': 'slide-in-left 0.5s ease-out',
+        'slide-in-up': 'slide-in-up 0.5s ease-out',
+        'fade-in': 'fade-in 0.6s ease-out',
+        'scale-in': 'scale-in 0.4s ease-out',
+        'shimmer': 'shimmer 2s linear infinite',
+        'wave': 'wave 3s ease-in-out infinite',
+        'ripple': 'ripple 1s ease-out',
+        'bounce-slow': 'bounce 3s infinite',
       },
       keyframes: {
         blob: {
@@ -42,6 +51,83 @@ module.exports = {
           '50%': {
             opacity: '0.8',
             transform: 'scale(1.05)',
+          },
+        },
+        'slide-in-right': {
+          '0%': {
+            transform: 'translateX(100%)',
+            opacity: '0',
+          },
+          '100%': {
+            transform: 'translateX(0)',
+            opacity: '1',
+          },
+        },
+        'slide-in-left': {
+          '0%': {
+            transform: 'translateX(-100%)',
+            opacity: '0',
+          },
+          '100%': {
+            transform: 'translateX(0)',
+            opacity: '1',
+          },
+        },
+        'slide-in-up': {
+          '0%': {
+            transform: 'translateY(100%)',
+            opacity: '0',
+          },
+          '100%': {
+            transform: 'translateY(0)',
+            opacity: '1',
+          },
+        },
+        'fade-in': {
+          '0%': {
+            opacity: '0',
+          },
+          '100%': {
+            opacity: '1',
+          },
+        },
+        'scale-in': {
+          '0%': {
+            transform: 'scale(0.8)',
+            opacity: '0',
+          },
+          '100%': {
+            transform: 'scale(1)',
+            opacity: '1',
+          },
+        },
+        shimmer: {
+          '0%': {
+            backgroundPosition: '-1000px 0',
+          },
+          '100%': {
+            backgroundPosition: '1000px 0',
+          },
+        },
+        wave: {
+          '0%, 100%': {
+            transform: 'rotate(0deg)',
+          },
+          '25%': {
+            transform: 'rotate(20deg)',
+          },
+          '75%': {
+            transform: 'rotate(-15deg)',
+          },
+        },
+        ripple: {
+          '0%': {
+            transform: 'scale(0)',
+            opacity: '1',
+          },
+          '100%': {
+            transform: 'scale(4)',
+            opacity: '0',
           },
         },
       },

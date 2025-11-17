@@ -15,14 +15,19 @@ const DashboardProvider = ({ children }) => {
         console.log('Setting online status:', navigator.onLine);
         dispatch(setOnlineStatus(navigator.onLine));
         
-        // Test NOAA connection
-        console.log('Testing NOAA connection...');
-        const result = await dispatch(testNoaaConnection()).unwrap();
-        console.log('NOAA connection test result:', result);
-        
-        // Fetch initial data
-        dispatch(fetchCapeHenryAnalysis());
-        dispatch(fetchCurrentsData('cb0201'));
+        // Test NOAA connection - continue even if it fails
+        try {
+          console.log('Testing NOAA connection...');
+          const result = await dispatch(testNoaaConnection()).unwrap();
+          console.log('NOAA connection test result:', result);
+          
+          // Fetch initial data only if connection test succeeds
+          dispatch(fetchCapeHenryAnalysis());
+          dispatch(fetchCurrentsData('cb0201'));
+        } catch (noaaError) {
+          console.warn('NOAA connection failed (non-critical):', noaaError);
+          // Dashboard continues to work without NOAA data
+        }
         
       } catch (error) {
         console.error('Dashboard initialization failed:', error);

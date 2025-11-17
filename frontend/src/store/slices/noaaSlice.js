@@ -1,8 +1,8 @@
 ﻿// NOAA data slice for real-time ocean and weather data
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
-// Get API base URL from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// Get API base URL from environment variables - Use Node backend for NOAA
+const API_BASE_URL = import.meta.env.VITE_NODE_API_URL || 'http://localhost:3001';
 // OpenWeather API key (optional). If provided, some NOAA endpoints will fall back to OpenWeather
 const OPENWEATHER_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY || null;
 // Simple mapping of known station ids to coordinates (extend as needed)

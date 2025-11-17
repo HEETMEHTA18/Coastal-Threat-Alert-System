@@ -11,16 +11,20 @@ export default defineConfig({
     historyApiFallback: true,
     // Development proxy configuration
     proxy: {
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-      },
+      // ML API endpoints - must come BEFORE /api to avoid conflicts
       '/predict_alert': {
-        target: 'http://localhost:8000/api',
+        target: 'http://localhost:8000',
         changeOrigin: true,
+        rewrite: (path) => '/api' + path,
       },
       '/forecast': {
-        target: 'http://localhost:8000/api',
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => '/api' + path,
+      },
+      // Node backend API - catches all other /api/* requests
+      '/api': {
+        target: 'http://localhost:3001',
         changeOrigin: true,
       },
     },

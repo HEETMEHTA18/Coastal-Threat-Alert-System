@@ -7,6 +7,7 @@ import Register from './components/Register';
 import InteractiveDashboardRedux from './components/InteractiveDashboardRedux';
 import LogoutPage, { LogoutSuccessPage } from './components/LogoutPage';
 import ThemeProvider from './components/ThemeProvider';
+import EnhancedLoader from './components/EnhancedLoader';
 import { useUI, useAuth } from './store/hooks';
 import { setCurrentView, setAppLoading } from './store/slices/uiSlice';
 import { initializeAuth, setDemoUser, logoutUser } from './store/slices/authSlice';
@@ -91,18 +92,14 @@ function AppContent() {
   // We've replaced all the handlers with direct navigate() calls in the Route components
 
   // Loading screen
-  // Loading screen
   if (loading.app) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center mb-4 mx-auto animate-pulse">
-            <span className="text-white font-bold text-2xl">🌊</span>
-          </div>
-          <h2 className="text-white text-xl font-semibold mb-2">Loading CTAS</h2>
-          <div className="w-32 h-2 bg-white/20 rounded-full mx-auto overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full animate-pulse"></div>
-          </div>
+      <div className="min-h-screen animated-gradient flex items-center justify-center">
+        <div className="text-center animate-scale-in">
+          <EnhancedLoader 
+            type="ocean" 
+            message="Initializing Coastal Guardian System..." 
+          />
         </div>
       </div>
     );

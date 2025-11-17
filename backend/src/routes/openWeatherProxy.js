@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const OpenWeatherMapService = require('../services/openWeatherMapService');
+const cache = require('../lib/cache');
 
 // Initialize service with server-side API key
 const apiKey = process.env.OPENWEATHER_API_KEY || null;
@@ -15,6 +16,13 @@ if (apiKey) {
 }
 const isDev = process.env.NODE_ENV !== 'production';
 console.debug && console.debug('openWeatherProxy initialized. hasKey=', !!apiKey, 'serviceReady=', !!weatherService);
+
+// Cache TTL settings
+const CACHE_TTL = {
+  current: 5 * 60 * 1000, // 5 minutes
+  forecast: 30 * 60 * 1000, // 30 minutes
+  onecall: 30 * 60 * 1000  // 30 minutes
+};
 
 // GET /api/openweather/test
 router.get('/test', async (req, res) => {
@@ -44,8 +52,18 @@ router.get('/current', async (req, res) => {
   if (!weatherService) return res.status(400).json({ status: 'error', message: 'OpenWeather API not configured on server' });
   const { lat, lon } = req.query;
   if (!lat || !lon) return res.status(400).json({ status: 'error', message: 'lat and lon query params required' });
+  
+  // Check cache first
+  const cacheKey = cache.key('weather_current', { lat, lon });
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    return res.json({ status: 'success', data: cached, cached: true });
+  }
+
   try {
     const data = await weatherService.getWeatherByCoordinates(lat, lon);
+    // Cache successful response
+    cache.set(cacheKey, data, CACHE_TTL.current);
     res.json({ status: 'success', data });
   } catch (err) {
     // Log full error for server-side debugging
@@ -62,8 +80,18 @@ router.get('/forecast', async (req, res) => {
   if (!weatherService) return res.status(400).json({ status: 'error', message: 'OpenWeather API not configured on server' });
   const { lat, lon, days = 5 } = req.query;
   if (!lat || !lon) return res.status(400).json({ status: 'error', message: 'lat and lon query params required' });
+  
+  // Check cache first
+  const cacheKey = cache.key('weather_forecast', { lat, lon, days });
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    return res.json({ status: 'success', data: cached, cached: true });
+  }
+
   try {
     const data = await weatherService.getForecastByCoordinates ? await weatherService.getForecastByCoordinates(lat, lon, days) : await weatherService.getForecast(lat, days);
+    // Cache successful response
+    cache.set(cacheKey, data, CACHE_TTL.forecast);
     res.json({ status: 'success', data });
   } catch (err) {
     console.error('OpenWeather /forecast proxy error:', err && err.stack ? err.stack : err);

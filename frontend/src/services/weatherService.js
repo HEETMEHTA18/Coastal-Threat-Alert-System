@@ -1,3 +1,6 @@
+import apiCache from '../utils/apiCache';
+import requestDebouncer from '../utils/requestDebounce';
+
 // Weather Service for real-time weather data integration
 class WeatherService {
   constructor() {
@@ -6,80 +9,118 @@ class WeatherService {
   // Use the canonical env var name used elsewhere in the frontend
   this.apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY || '';
     this.baseUrl = 'https://api.openweathermap.org/data/2.5';
+    this.cacheTTL = {
+      current: 5 * 60 * 1000, // 5 minutes for current weather
+      forecast: 30 * 60 * 1000, // 30 minutes for forecast
+      historical: 60 * 60 * 1000 // 1 hour for historical data
+    };
   }
 
   /**
    * Get current weather for coordinates
    */
   async getCurrentWeather(lat, lon) {
-    try {
-      console.debug && console.debug('weatherService.getCurrentWeather called', { lat, lon });
-      // Try server-side proxy first
-      const proxyUrl = `${this.nodeBase.replace(/\/$/, '')}/api/openweather/current?lat=${lat}&lon=${lon}`;
-      let response;
-      try {
-        response = await fetch(proxyUrl);
-        if (response.ok) {
-          const payload = await response.json();
-          console.debug && console.debug('weatherService proxy response for current:', payload);
-          if (payload && payload.status === 'success' && payload.data) {
-              // If proxy returns a normalized OpenWeather-like object, return it as-is
-              if (payload.data.main && payload.data.weather) {
-                return payload.data;
-              }
-              // Otherwise attempt to format a compatible shape
-              if (payload.data) return this.formatCurrentWeather(payload.data);
-          }
-        }
-        // if proxy returns non-OK, fall back to direct call
-      } catch (err) {
-        // proxy failed, will fall back to client-side call
-        console.warn('OpenWeather proxy failed, falling back to direct API:', err.message);
-      }
-
-      // Fallback: direct client-side call (requires API key)
-      if (!this.apiKey) {
-        throw new Error('No OpenWeather API key configured for direct client calls');
-      }
-      response = await fetch(`${this.baseUrl}/weather?lat=${lat}&lon=${lon}&appid=${this.apiKey}&units=metric`);
-      
-      if (!response.ok) {
-        throw new Error(`Weather API error: ${response.status}`);
-      }
-      
-  const data = await response.json();
-  // Direct client call returns OpenWeather raw object - return it directly so UI can read `main`, `weather`, `wind`.
-  return data;
-    } catch (error) {
-      console.error('Failed to fetch current weather:', error);
-        console.debug && console.debug('weatherService falling back to client-side API for current weather');
-      return null;
+    // Check cache first
+    const cacheKey = `weather_current_${lat}_${lon}`;
+    const cached = apiCache.get(cacheKey);
+    if (cached) {
+      return cached;
     }
+
+    // Debounce request
+    const requestKey = requestDebouncer.generateKey(`/api/openweather/current`, 'GET', { lat, lon });
+    
+    return requestDebouncer.debounce(requestKey, async () => {
+      try {
+        console.debug && console.debug('weatherService.getCurrentWeather called', { lat, lon });
+        // Try server-side proxy first
+        const proxyUrl = `${this.nodeBase.replace(/\/$/, '')}/api/openweather/current?lat=${lat}&lon=${lon}`;
+        let response;
+        try {
+          response = await fetch(proxyUrl);
+          if (response.ok) {
+            const payload = await response.json();
+            console.debug && console.debug('weatherService proxy response for current:', payload);
+            if (payload && payload.status === 'success' && payload.data) {
+                // If proxy returns a normalized OpenWeather-like object, return it as-is
+                if (payload.data.main && payload.data.weather) {
+                  // Cache successful response
+                  apiCache.set(cacheKey, payload.data, this.cacheTTL.current);
+                  return payload.data;
+                }
+                // Otherwise attempt to format a compatible shape
+                if (payload.data) {
+                  const formatted = this.formatCurrentWeather(payload.data);
+                  apiCache.set(cacheKey, formatted, this.cacheTTL.current);
+                  return formatted;
+                }
+            }
+          }
+          // if proxy returns non-OK, fall back to direct call
+        } catch (err) {
+          // proxy failed, will fall back to client-side call
+          console.warn('OpenWeather proxy failed, falling back to direct API:', err.message);
+        }
+
+        // Fallback: direct client-side call (requires API key)
+        if (!this.apiKey) {
+          throw new Error('No OpenWeather API key configured for direct client calls');
+        }
+        response = await fetch(`${this.baseUrl}/weather?lat=${lat}&lon=${lon}&appid=${this.apiKey}&units=metric`);
+        
+        if (!response.ok) {
+          throw new Error(`Weather API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        // Direct client call returns OpenWeather raw object - cache and return it
+        apiCache.set(cacheKey, data, this.cacheTTL.current);
+        return data;
+      } catch (error) {
+        console.error('Failed to fetch current weather:', error);
+        console.debug && console.debug('weatherService falling back to client-side API for current weather');
+        return null;
+      }
+    });
   }
 
   /**
    * Get 5-day weather forecast
    */
   async getWeatherForecast(lat, lon) {
-    try {
-      console.debug && console.debug('weatherService.getWeatherForecast called', { lat, lon });
-      // Try proxy
-      const proxyUrl = `${this.nodeBase.replace(/\/$/, '')}/api/openweather/forecast?lat=${lat}&lon=${lon}`;
-      let response;
+    // Check cache first
+    const cacheKey = `weather_forecast_${lat}_${lon}`;
+    const cached = apiCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // Debounce request
+    const requestKey = requestDebouncer.generateKey(`/api/openweather/forecast`, 'GET', { lat, lon });
+    
+    return requestDebouncer.debounce(requestKey, async () => {
       try {
-        response = await fetch(proxyUrl);
-        if (response.ok) {
-          const payload = await response.json();
-          console.debug && console.debug('weatherService proxy response for forecast:', payload);
-          if (payload && payload.status === 'success' && payload.data) {
-              // Proxy may return either raw OpenWeather response (with `.list`) or
-              // a pre-processed array of daily forecasts. Support both shapes.
-              if (Array.isArray(payload.data)) {
-                // Already-processed days array
-                return payload.data;
-              }
+        console.debug && console.debug('weatherService.getWeatherForecast called', { lat, lon });
+        // Try proxy
+        const proxyUrl = `${this.nodeBase.replace(/\/$/, '')}/api/openweather/forecast?lat=${lat}&lon=${lon}`;
+        let response;
+        try {
+          response = await fetch(proxyUrl);
+          if (response.ok) {
+            const payload = await response.json();
+            console.debug && console.debug('weatherService proxy response for forecast:', payload);
+            if (payload && payload.status === 'success' && payload.data) {
+                // Proxy may return either raw OpenWeather response (with `.list`) or
+                // a pre-processed array of daily forecasts. Support both shapes.
+                if (Array.isArray(payload.data)) {
+                  // Already-processed days array
+                  apiCache.set(cacheKey, payload.data, this.cacheTTL.forecast);
+                  return payload.data;
+                }
               if (Array.isArray(payload.data.list)) {
-                return this.formatForecast(payload.data);
+                const formatted = this.formatForecast(payload.data);
+                apiCache.set(cacheKey, formatted, this.cacheTTL.forecast);
+                return formatted;
               }
               console.warn('OpenWeather proxy returned unexpected shape for forecast', payload.data);
               // fall through to client fallback
@@ -99,11 +140,14 @@ class WeatherService {
       }
       
       const data = await response.json();
-      return this.formatForecast(data);
+      const formatted = this.formatForecast(data);
+      apiCache.set(cacheKey, formatted, this.cacheTTL.forecast);
+      return formatted;
     } catch (error) {
       console.error('Failed to fetch weather forecast:', error);
       return null;
     }
+    });
   }
 
   /**

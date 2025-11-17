@@ -18,6 +18,10 @@ venv/
 *.pyc
 # *.pkl  # Commented out - we need alert_model.pkl for production
 
+## Jupyter
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
 ## Logs
 *.log
 uvicorn_out.log
