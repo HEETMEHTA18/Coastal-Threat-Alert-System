@@ -7,8 +7,8 @@ import os
 import subprocess
 import sys
 
-# Get PORT from environment or default to 8000
-port = os.getenv("PORT", "8000")
+# Get PORT from environment or default to 10000 (Render expects this)
+port = os.getenv("PORT", "10000")
 
 print(f"🚀 Starting CTAS AI Models API on port {port}")
 print(f"📝 Environment PORT variable: {os.getenv('PORT', 'NOT SET')}")

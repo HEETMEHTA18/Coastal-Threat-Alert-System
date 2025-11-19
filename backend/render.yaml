@@ -3,9 +3,8 @@ services:
     name: ctas-backend
     env: node
     plan: free
-    rootDir: ./backend
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
     envVars:
       - key: NODE_ENV
         value: production
