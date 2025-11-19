@@ -1,6 +1,32 @@
-# This root render.yaml should NOT be used for deployment
-# Use individual render.yaml files in backend/ and ai-models/ directories
-# Deploy each service separately on Render dashboard
+# ⚠️ IMPORTANT: This single-service approach has limitations
+# Recommended: Deploy backend/ and ai-models/ as separate services
+# 
+# Current setup: Combined service using Node environment
+# The AI API endpoints are proxied through the Node backend
 
-# For backend: Use backend/render.yaml
-# For AI models: Use ai-models/render.yaml
+services:
+  - type: web
+    name: coastal-threat-alert-system
+    env: node
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && node src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false  # Set in Render dashboard
+      - key: JWT_SECRET
+        sync: false  # Set in Render dashboard
+      - key: CORS_ORIGINS
+        value: https://coastal-threat-alert-system-two.vercel.app
+      - key: OPENWEATHER_API_KEY
+        value: 00845c44932451b7f6339b12bde4b000
+      - key: NOAA_CDO_API_KEY
+        sync: false  # Set in Render dashboard
+      # AI API will need to be deployed separately
+      - key: AI_API_URL
+        value: http://localhost:8000  # Change this when AI service is deployed
+    healthCheckPath: /api/health

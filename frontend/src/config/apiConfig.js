@@ -4,10 +4,13 @@ const getApiUrls = () => {
   
   if (isProduction) {
     return {
-      // Your actual Render service URLs
-      NODE_API: import.meta.env.VITE_NODE_API_URL || 'https://coastal-threat-alert-system-ctq6.onrender.com',
-      AI_API: import.meta.env.VITE_AI_API_URL || 'https://coastal-threat-alert-system-ctq6.onrender.com',
-      // If you create separate AI service, update AI_API URL
+      // IMPORTANT: Set these in Vercel environment variables after deploying to Render
+      // After you deploy the two separate services (backend and ai-models) to Render,
+      // add these environment variables in Vercel:
+      // VITE_NODE_API_URL=https://ctas-backend.onrender.com
+      // VITE_AI_API_URL=https://ctas-ai-models.onrender.com
+      NODE_API: import.meta.env.VITE_NODE_API_URL || 'http://localhost:3001',
+      AI_API: import.meta.env.VITE_AI_API_URL || 'http://localhost:8000',
     };
   }
   
