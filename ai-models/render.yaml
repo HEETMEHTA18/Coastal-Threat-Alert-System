@@ -4,9 +4,8 @@ services:
     name: ctas-ai-models
     env: python
     plan: starter
-    rootDir: ./ai-models
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "python3 start.sh"
+    startCommand: "./start.sh"
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"

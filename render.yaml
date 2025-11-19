@@ -1,34 +1,6 @@
-# Render.yaml - Backend deployment configuration
-version: "1"
+# This root render.yaml should NOT be used for deployment
+# Use individual render.yaml files in backend/ and ai-models/ directories
+# Deploy each service separately on Render dashboard
 
-services:
-  # Backend Node.js service
-  - type: web
-    name: ctas-backend
-    runtime: node
-    plan: free
-    buildCommand: npm run build
-    startCommand: npm start
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: 10000
-      - key: CORS_ORIGINS
-        value: "https://coastal-threat-alert-system-two.vercel.app"
-      # These should be set in Render dashboard:
-      # - MONGODB_URI (from your MongoDB Atlas)
-      # - JWT_SECRET (generate a secure secret)
-      # - OPENWEATHER_API_KEY (your OpenWeather API key)
-      # - NOAA_CDO_API_KEY (your NOAA API key)
-
-  # Python AI backend service
-  - type: web  
-    name: ctas-ai-backend
-    runtime: python
-    plan: free
-    buildCommand: pip install -r ai-models/requirements.txt
-    startCommand: cd ai-models && uvicorn api.main:app --host 0.0.0.0 --port $PORT
-    envVars:
-      - key: PORT
-        value: 10000
+# For backend: Use backend/render.yaml
+# For AI models: Use ai-models/render.yaml
