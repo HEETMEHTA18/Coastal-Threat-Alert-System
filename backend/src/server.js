@@ -112,31 +112,51 @@ app.use('/api/ai', require('./routes/ai'));
 // Server-side proxy for OpenWeather to avoid exposing API key to clients
 app.use('/api/openweather', require('./routes/openWeatherProxy'));
 
-// Direct predict_alert endpoint (for frontend compatibility)
-app.post('/api/predict_alert', async (req, res) => {
+// Proxy AI model requests to local Python service (port 8000)
+const axios = require('axios');
+const AI_SERVICE_URL = process.env.AI_API_URL || 'http://localhost:8000';
+
+// Proxy all /api/predict_* and /api/forecast endpoints to AI service
+app.use('/api/predict_alert', async (req, res) => {
   try {
-    const { latitude, longitude } = req.body;
-    
-    // Mock response - replace with actual AI service call when Python service is running
-    const mockPrediction = {
-      type: 'prediction',
-      payload: {
-        rain_predicted: Math.random() > 0.7,
-        rain_probability: Math.round(Math.random() * 30),
-        temperature_predicted: Math.round(20 + Math.random() * 15),
-        humidity_predicted: Math.round(40 + Math.random() * 40),
-        water_level_predicted: Math.round((1 + Math.random() * 2) * 10) / 10,
-        location: { latitude, longitude }
-      }
-    };
-    
-    res.json(mockPrediction);
+    const response = await axios.post(`${AI_SERVICE_URL}/api/predict_alert`, req.body, {
+      timeout: 30000,
+      headers: { 'Content-Type': 'application/json' }
+    });
+    res.json(response.data);
   } catch (error) {
-    res.status(500).json({
-      error: 'Prediction service temporarily unavailable',
-      details: error.message
+    console.error('AI Service Error:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: 'AI prediction service unavailable',
+      message: error.message
     });
   }
+});
+
+app.use('/api/forecast', async (req, res) => {
+  try {
+    const response = await axios.post(`${AI_SERVICE_URL}/api/forecast`, req.body, {
+      timeout: 30000,
+      headers: { 'Content-Type': 'application/json' }
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('AI Service Error:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: 'AI forecast service unavailable',
+      message: error.message
+    });
+  }
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    service: 'CTAS Backend',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
 // Global Error Handler - Must be last middleware

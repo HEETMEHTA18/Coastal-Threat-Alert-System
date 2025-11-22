@@ -1,33 +1,28 @@
-# Root Render service configuration (combined) - temporary
-# Recommended: deploy `backend` and `ai-models` as separate services.
+# Single-service deployment for Render
+# Runs both Node.js backend and Python AI models in one service
 
 services:
   - type: web
     name: coastal-threat-alert-system
-    env: node
-    plan: free
-    buildCommand: |
-      # Install Node backend dependencies
-      cd backend && npm install
-      # Install Python dependencies for AI models
-      pip install -r ai-models/requirements.txt
-    # Use bash to run combined startup script (avoids exec-permission issues)
-    startCommand: bash start_combined.sh
+    env: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
       - key: MONGODB_URI
-        sync: false
+        sync: false # Set in Render dashboard
       - key: JWT_SECRET
-        sync: false
+        sync: false # Set in Render dashboard
       - key: CORS_ORIGINS
         value: https://coastal-threat-alert-system-two.vercel.app
       - key: OPENWEATHER_API_KEY
-        sync: false
+        sync: false # Set in Render dashboard
       - key: NOAA_CDO_API_KEY
-        sync: false
+        sync: false # Set in Render dashboard
       - key: ALLOWED_ORIGINS
         value: https://coastal-threat-alert-system-two.vercel.app
     healthCheckPath: /api/health
+    autoDeploy: true
