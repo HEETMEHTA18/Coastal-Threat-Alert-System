@@ -1,12 +1,17 @@
-# Single-service deployment for Render
+# Free-tier single-service deployment for Render
 # Runs both Node.js backend and Python AI models in one service
 
 services:
   - type: web
     name: coastal-threat-alert-system
-    env: docker
-    plan: starter
-    dockerfilePath: ./Dockerfile
+    env: python
+    plan: free
+    buildCommand: |
+      # Install Python AI dependencies first
+      pip install -r ai-models/requirements.txt
+      # Install backend dependencies
+      cd backend && npm ci --production && cd ..
+    startCommand: bash start_combined.sh
     envVars:
       - key: NODE_ENV
         value: production

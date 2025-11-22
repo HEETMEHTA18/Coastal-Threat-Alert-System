@@ -1,21 +1,36 @@
 #!/usr/bin/env bash
 set -e
 
-# Combined startup script for Render single-service deployment (temporary)
-# Starts Node backend (foreground via background process) and AI uvicorn on PORT
+# Combined startup script for Render free-tier deployment
+# Starts Node backend and Python AI models in one service
 
 PORT=${PORT:-10000}
-echo "🚀 Starting combined service. PORT=${PORT}"
+echo "🚀 Starting CTAS Combined Service (FREE TIER) on port ${PORT}"
 
-echo "📍 Starting Node backend..."
-# Run node backend in background (uses src/server.js path)
-node backend/src/server.js &
-BACKEND_PID=$!
-
-echo "📍 Starting AI models (uvicorn) on port ${PORT}..."
+# Start AI models on port 8000 in background
+echo "📍 Starting AI Models API on port 8000..."
 cd ai-models
-# Run uvicorn in foreground so Render can see the open port
-exec uvicorn api.main:app --host 0.0.0.0 --port ${PORT}
+python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000 &
+AI_PID=$!
+cd ..
 
-# If uvicorn exits, kill backend
-trap "echo 'Shutting down backend'; kill ${BACKEND_PID} || true" EXIT
+# Wait for AI to initialize
+echo "⏳ Waiting for AI API to initialize..."
+sleep 8
+
+# Start backend on $PORT (foreground)
+echo "📍 Starting Backend on port ${PORT}..."
+cd backend
+PORT=${PORT} node src/server.js &
+BACKEND_PID=$!
+cd ..
+
+# Keep script running and forward signals
+trap "echo 'Shutting down...'; kill ${AI_PID} ${BACKEND_PID} 2>/dev/null || true" EXIT
+
+echo "✅ Both services started successfully!"
+echo "   - AI Models: http://localhost:8000"
+echo "   - Backend: http://0.0.0.0:${PORT}"
+
+# Wait for backend (main process)
+wait ${BACKEND_PID}
