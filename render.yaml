@@ -1,32 +1,33 @@
-# ⚠️ IMPORTANT: This single-service approach has limitations
-# Recommended: Deploy backend/ and ai-models/ as separate services
-# 
-# Current setup: Combined service using Node environment
-# The AI API endpoints are proxied through the Node backend
+# Root Render service configuration (combined) - temporary
+# Recommended: deploy `backend` and `ai-models` as separate services.
 
 services:
   - type: web
     name: coastal-threat-alert-system
     env: node
     plan: free
-    buildCommand: cd backend && npm install
-    startCommand: cd backend && node src/server.js
+    buildCommand: |
+      # Install Node backend dependencies
+      cd backend && npm install
+      # Install Python dependencies for AI models
+      pip install -r ai-models/requirements.txt
+    # Use bash to run combined startup script (avoids exec-permission issues)
+    startCommand: bash start_combined.sh
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
       - key: MONGODB_URI
-        sync: false  # Set in Render dashboard
+        sync: false
       - key: JWT_SECRET
-        sync: false  # Set in Render dashboard
+        sync: false
       - key: CORS_ORIGINS
         value: https://coastal-threat-alert-system-two.vercel.app
       - key: OPENWEATHER_API_KEY
-        value: 00845c44932451b7f6339b12bde4b000
+        sync: false
       - key: NOAA_CDO_API_KEY
-        sync: false  # Set in Render dashboard
-      # AI API will need to be deployed separately
-      - key: AI_API_URL
-        value: http://localhost:8000  # Change this when AI service is deployed
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://coastal-threat-alert-system-two.vercel.app
     healthCheckPath: /api/health
