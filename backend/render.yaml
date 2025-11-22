@@ -3,7 +3,7 @@ services:
     name: ctas-backend
     env: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm ci --production
     startCommand: node src/server.js
     envVars:
       - key: NODE_ENV
@@ -18,4 +18,7 @@ services:
         sync: false # Set this in Render dashboard
       - key: NOAA_CDO_API_KEY
         sync: false # Set this in Render dashboard
+      - key: AI_API_URL
+        value: https://ctas-ai-models.onrender.com # Update after AI service deployed
     healthCheckPath: /api/health
+    autoDeploy: true
