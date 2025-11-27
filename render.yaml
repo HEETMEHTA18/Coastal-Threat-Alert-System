@@ -9,7 +9,7 @@ services:
     buildCommand: |
       # Install Python AI dependencies first
       pip install -r ai-models/requirements.txt
-      # Install backend dependencies
+      # Install backend dependencies (Node.js is pre-installed in Python env)
       cd backend && npm ci --production && cd ..
     startCommand: bash start_combined.sh
     envVars:
@@ -17,6 +17,10 @@ services:
         value: production
       - key: PORT
         value: 10000
+      - key: NODE_PATH
+        value: /opt/render/project/src/backend/node_modules
+      - key: AI_API_URL
+        value: http://localhost:8000
       - key: MONGODB_URI
         sync: false # Set in Render dashboard
       - key: JWT_SECRET
