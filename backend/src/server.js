@@ -7,11 +7,20 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 
 // Load environment variables from .env file - this must happen before importing modules that use env vars
-require("dotenv").config({ path: path.join(__dirname, "../.env") });
-// Security: Don't log sensitive environment variables in production
-if (process.env.NODE_ENV !== 'production') {
-  console.log('Development mode - environment loaded');
-}
+// In production (Render), env vars are set directly, so .env file is optional
+const dotenvPath = path.join(__dirname, "../../.env"); // Look in project root
+require("dotenv").config({ path: dotenvPath });
+
+// Log startup environment info
+console.log('🔧 Environment:', process.env.NODE_ENV || 'development');
+console.log('📍 Current directory:', __dirname);
+console.log('🔑 Env vars loaded:', {
+  NODE_ENV: process.env.NODE_ENV || 'not set',
+  PORT: process.env.PORT || 'not set',
+  MONGODB_URI: process.env.MONGODB_URI ? '✓ configured' : '✗ MISSING',
+  JWT_SECRET: process.env.JWT_SECRET ? '✓ configured' : '✗ MISSING',
+  CORS_ORIGINS: process.env.CORS_ORIGINS || 'using defaults'
+});
 
 const connectDB = require('./lib/db.js');
 const app = express();

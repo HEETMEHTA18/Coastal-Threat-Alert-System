@@ -35,4 +35,10 @@ export PORT=${PORT}
 
 # Run backend in FOREGROUND (not background) so Render can detect port
 echo "🚀 Executing: node src/server.js"
+echo "📍 Environment check:"
+echo "   PORT=$PORT"
+echo "   NODE_ENV=$NODE_ENV"
+echo "   MONGODB_URI=${MONGODB_URI:0:20}..."
+echo "   JWT_SECRET=${JWT_SECRET:+set}"
+echo "-----------------------------------"
 exec node src/server.js
