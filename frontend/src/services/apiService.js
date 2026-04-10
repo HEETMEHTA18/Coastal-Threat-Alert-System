@@ -163,7 +163,7 @@ class CTASApiService {
   }
 
   async getCurrentUser() {
-    const token = localStorage.getItem('ctas_token');
+    const token = sessionStorage.getItem('ctas_token');
     if (!token) throw new Error('No authentication token');
 
     return this.fetchAPI('/auth/me', {

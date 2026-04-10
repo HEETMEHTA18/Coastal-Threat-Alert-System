@@ -16,7 +16,7 @@ export const fetchAlerts = createAsyncThunk(
   'alerts/fetchAlerts',
   async (_, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('ctas_token');
+      const token = sessionStorage.getItem('ctas_token');
       if (!token) {
         return rejectWithValue('No authentication token');
       }
@@ -43,7 +43,7 @@ export const createAlert = createAsyncThunk(
   'alerts/createAlert',
   async (alertData, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('ctas_token');
+      const token = sessionStorage.getItem('ctas_token');
       if (!token) {
         return rejectWithValue('No authentication token');
       }

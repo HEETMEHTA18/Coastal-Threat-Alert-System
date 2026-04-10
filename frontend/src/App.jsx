@@ -120,7 +120,7 @@ function AppContent() {
         <Route path="/register" element={<Register onBack={() => navigate('/')} />} />
         <Route path="/logout-success" element={<LogoutSuccessPage onReturnHome={() => {
           localStorage.removeItem('ctas_user');
-          localStorage.removeItem('ctas_token');
+          sessionStorage.removeItem('ctas_token');
           localStorage.removeItem('session_start');
           navigate('/');
         }} />} />

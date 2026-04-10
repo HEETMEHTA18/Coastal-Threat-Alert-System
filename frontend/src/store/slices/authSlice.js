@@ -44,14 +44,13 @@ export const loginUser = createAsyncThunk(
       
       const data = await response.json();
       
-      console.log('Backend response:', data); // Debug log
-      
       // Backend returns data in data.data format
       const userData = data.data?.user || data.user;
       const token = data.data?.token || data.token;
-      
-      console.log('Extracted userData:', userData); // Debug log
-      console.log('Extracted token:', token); // Debug log
+
+      if (!token) {
+        throw new Error('Authentication token not found in response');
+      }
       
       if (!userData) {
         throw new Error('User data not found in response');
@@ -64,7 +63,7 @@ export const loginUser = createAsyncThunk(
       
       // Store in localStorage
       localStorage.setItem('ctas_user', JSON.stringify(userData));
-      localStorage.setItem('ctas_token', token);
+      sessionStorage.setItem('ctas_token', token);
       
       return {
         user: userData,
@@ -101,7 +100,7 @@ export const registerUser = createAsyncThunk(
       
       // Store in localStorage
       localStorage.setItem('ctas_user', JSON.stringify(userData));
-      localStorage.setItem('ctas_token', token);
+      sessionStorage.setItem('ctas_token', token);
       
       return {
         user: userData,
@@ -119,7 +118,7 @@ export const logoutUser = createAsyncThunk(
     try {
       // Clear localStorage
       localStorage.removeItem('ctas_user');
-      localStorage.removeItem('ctas_token');
+      sessionStorage.removeItem('ctas_token');
       
       return true;
     } catch (error) {
@@ -151,7 +150,7 @@ const authSlice = createSlice({
       
       // Also store in localStorage
       localStorage.setItem('ctas_user', JSON.stringify(user));
-      localStorage.setItem('ctas_token', token);
+      sessionStorage.setItem('ctas_token', token);
     },
     clearCredentials: (state) => {
       state.user = null;
@@ -160,18 +159,12 @@ const authSlice = createSlice({
       
       // Also clear from localStorage
       localStorage.removeItem('ctas_user');
-      localStorage.removeItem('ctas_token');
+      sessionStorage.removeItem('ctas_token');
     },
     initializeAuth: (state) => {
       // Check localStorage for existing auth
       const storedUser = localStorage.getItem('ctas_user');
-      const storedToken = localStorage.getItem('ctas_token');
-      
-      console.log('🔐 InitializeAuth Debug:', { 
-        storedUser: storedUser ? 'exists' : 'null', 
-        storedToken: storedToken ? 'exists' : 'null',
-        currentState: { user: state.user, isAuthenticated: state.isAuthenticated }
-      });
+      const storedToken = sessionStorage.getItem('ctas_token');
       
       if (storedUser && storedToken) {
         try {
@@ -183,14 +176,12 @@ const authSlice = createSlice({
           state.user = parsedUser;
           state.token = storedToken;
           state.isAuthenticated = true;
-          console.log('🔐 Auth initialized successfully:', { user: parsedUser, isAuthenticated: true });
         } catch (error) {
           console.error('Failed to parse stored auth data:', error);
           localStorage.removeItem('ctas_user');
-          localStorage.removeItem('ctas_token');
+          sessionStorage.removeItem('ctas_token');
         }
       } else {
-        console.log('🔐 No stored auth data found - user needs to login');
         // Don't set demo user automatically - let user login first
       }
     },

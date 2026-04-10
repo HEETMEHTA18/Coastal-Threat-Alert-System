@@ -2,7 +2,7 @@
 class DatabaseService {
   constructor() {
     this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
-    this.token = localStorage.getItem('ctas_token');
+    this.token = sessionStorage.getItem('ctas_token');
   }
 
   // Helper method for API calls
@@ -400,13 +400,13 @@ class DatabaseService {
   // Update token after authentication
   updateToken(token) {
     this.token = token;
-    localStorage.setItem('ctas_token', token);
+    sessionStorage.setItem('ctas_token', token);
   }
 
   // Clear token on logout
   clearToken() {
     this.token = null;
-    localStorage.removeItem('ctas_token');
+    sessionStorage.removeItem('ctas_token');
   }
 }
 

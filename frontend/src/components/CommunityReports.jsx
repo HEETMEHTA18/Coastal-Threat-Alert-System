@@ -220,6 +220,51 @@ const CommunityReports = () => {
     return colors[status] || 'text-gray-400 bg-gray-500/20';
   };
 
+  const getMediaUrl = (filename) => {
+    const safeFile = encodeURIComponent(filename || '');
+    return `http://localhost:8000/uploads/community-reports/${safeFile}`;
+  };
+
+  const openMediaModal = (type, src) => {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+
+    const container = document.createElement('div');
+    container.className = 'relative max-w-4xl max-h-full';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full w-8 h-8 flex items-center justify-center hover:bg-opacity-75';
+    closeBtn.textContent = 'x';
+
+    if (type === 'video') {
+      const video = document.createElement('video');
+      video.src = src;
+      video.className = 'max-w-full max-h-full object-contain rounded-lg';
+      video.controls = true;
+      video.autoplay = true;
+      container.appendChild(video);
+    } else {
+      const image = document.createElement('img');
+      image.src = src;
+      image.className = 'max-w-full max-h-full object-contain rounded-lg';
+      image.alt = 'Full size media';
+      container.appendChild(image);
+    }
+
+    container.appendChild(closeBtn);
+    modal.appendChild(container);
+
+    const closeModal = (e) => {
+      if (e.target === modal || e.target === closeBtn) {
+        document.body.removeChild(modal);
+      }
+    };
+
+    modal.onclick = closeModal;
+    closeBtn.onclick = closeModal;
+    document.body.appendChild(modal);
+  };
+
   const handleReportSubmit = async (newReport) => {
     // New report already saved to database by the form
     // Add it to the local state immediately for instant UI update
@@ -999,7 +1044,7 @@ const CommunityReports = () => {
                         {mediaItem.mimetype?.startsWith('image/') ? (
                           <div className="relative cursor-pointer">
                             <img
-                              src={`http://localhost:8000/uploads/community-reports/${mediaItem.filename}`}
+                              src={getMediaUrl(mediaItem.filename)}
                               alt={`Report media ${index + 1}`}
                               className="w-full h-32 object-cover rounded-lg border border-gray-600 hover:border-blue-500 transition-all duration-200"
                               onError={(e) => {
@@ -1007,25 +1052,7 @@ const CommunityReports = () => {
                                 e.target.nextSibling.style.display = 'flex';
                               }}
                               onClick={() => {
-                                // Create and show full-size image modal
-                                const modal = document.createElement('div');
-                                modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
-                                modal.innerHTML = `
-                                  <div class="relative max-w-4xl max-h-full">
-                                    <img src="http://localhost:8000/uploads/community-reports/${mediaItem.filename}" 
-                                         class="max-w-full max-h-full object-contain rounded-lg" 
-                                         alt="Full size image" />
-                                    <button class="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full w-8 h-8 flex items-center justify-center hover:bg-opacity-75">
-                                      ×
-                                    </button>
-                                  </div>
-                                `;
-                                modal.onclick = (e) => {
-                                  if (e.target === modal || e.target.tagName === 'BUTTON') {
-                                    document.body.removeChild(modal);
-                                  }
-                                };
-                                document.body.appendChild(modal);
+                                openMediaModal('image', getMediaUrl(mediaItem.filename));
                               }}
                             />
                             <div className="hidden w-full h-32 bg-gray-600 rounded-lg border border-gray-600" style={{display: 'none'}}>
@@ -1047,28 +1074,10 @@ const CommunityReports = () => {
                         ) : mediaItem.mimetype?.startsWith('video/') ? (
                           <div className="relative cursor-pointer">
                             <video
-                              src={`http://localhost:8000/uploads/community-reports/${mediaItem.filename}`}
+                              src={getMediaUrl(mediaItem.filename)}
                               className="w-full h-32 object-cover rounded-lg border border-gray-600 hover:border-blue-500 transition-all duration-200"
                               onClick={() => {
-                                // Create and show full-size video modal
-                                const modal = document.createElement('div');
-                                modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
-                                modal.innerHTML = `
-                                  <div class="relative max-w-4xl max-h-full">
-                                    <video src="http://localhost:8000/uploads/community-reports/${mediaItem.filename}" 
-                                           class="max-w-full max-h-full object-contain rounded-lg" 
-                                           controls autoplay />
-                                    <button class="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full w-8 h-8 flex items-center justify-center hover:bg-opacity-75">
-                                      ×
-                                    </button>
-                                  </div>
-                                `;
-                                modal.onclick = (e) => {
-                                  if (e.target === modal || e.target.tagName === 'BUTTON') {
-                                    document.body.removeChild(modal);
-                                  }
-                                };
-                                document.body.appendChild(modal);
+                                openMediaModal('video', getMediaUrl(mediaItem.filename));
                               }}
                             />
                             <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center rounded-lg">

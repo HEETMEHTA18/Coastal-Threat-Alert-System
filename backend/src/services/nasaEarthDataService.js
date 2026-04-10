@@ -11,7 +11,7 @@ class NASAEarthDataService {
       throw new Error('NASA Earth Data API token is required');
     }
     
-    console.log(`🛰️ NASA Earth Data Service initialized with token: ${apiToken.substring(0, 20)}...`);
+    console.log('🛰️ NASA Earth Data Service initialized');
   }
 
   async searchSatelliteData(params = {}) {

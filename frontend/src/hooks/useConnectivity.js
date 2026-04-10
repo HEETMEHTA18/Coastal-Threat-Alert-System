@@ -107,7 +107,7 @@ export const useInternetConnectivity = () => {
 
     // Listen for Redux auth actions to trigger connectivity check
     const handleStorageChange = (e) => {
-      if (e.key === 'ctas_token' && e.newValue) {
+      if (e.key === 'ctas_user' && e.newValue) {
         // User just logged in, check connectivity
         setTimeout(() => checkInternetConnectivity(), 1000);
       }

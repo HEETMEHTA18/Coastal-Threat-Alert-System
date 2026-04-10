@@ -4,13 +4,14 @@ const path = require('path');
 const fs = require('fs').promises;
 const CommunityReport = require('../models/CommunityReport');
 const SMSService = require('../services/smsService');
+const { authenticateToken, requirePermission } = require('../middleware/auth');
 const router = express.Router();
 
 // Initialize SMS service
 const smsService = new SMSService();
 
 // POST /api/community-reports - Create new report (no uploads)
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, requirePermission('canGenerateReports'), async (req, res) => {
   try {
     console.log('📝 Received community report submission');
 
@@ -196,7 +197,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // PUT /api/community-reports/:id/status - Update report status
-router.put('/:id/status', async (req, res) => {
+router.put('/:id/status', authenticateToken, requirePermission('canAcknowledgeAlerts'), async (req, res) => {
   try {
     const { status, notes, responderId } = req.body;
     
@@ -235,7 +236,7 @@ router.put('/:id/status', async (req, res) => {
 });
 
 // POST /api/community-reports/:id/response - Add response to report
-router.post('/:id/response', async (req, res) => {
+router.post('/:id/response', authenticateToken, requirePermission('canAcknowledgeAlerts'), async (req, res) => {
   try {
     const { responderId, responderType, message, action } = req.body;
     
@@ -266,7 +267,7 @@ router.post('/:id/response', async (req, res) => {
 });
 
 // POST /api/community-reports/:id/sms - Send additional SMS alerts
-router.post('/:id/sms', async (req, res) => {
+router.post('/:id/sms', authenticateToken, requirePermission('canAcknowledgeAlerts'), async (req, res) => {
   try {
     const { radius, urgentAlert, customMessage } = req.body;
     

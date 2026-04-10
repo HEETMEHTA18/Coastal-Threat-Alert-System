@@ -1,6 +1,13 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+const getJwtSecret = () => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured');
+  }
+  return process.env.JWT_SECRET;
+};
+
 // Verify JWT Token Middleware
 const authenticateToken = async (req, res, next) => {
   try {
@@ -17,7 +24,7 @@ const authenticateToken = async (req, res, next) => {
     }
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, getJwtSecret());
     
     // Find user
     const user = await User.findById(decoded.userId).select('-password');
@@ -120,7 +127,7 @@ const optionalAuth = async (req, res, next) => {
       : authHeader;
 
     if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      const decoded = jwt.verify(token, getJwtSecret());
       const user = await User.findById(decoded.userId).select('-password');
       
       if (user && user.status === 'active') {
