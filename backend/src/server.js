@@ -11,6 +11,11 @@ const path = require('path');
 const dotenvPath = path.join(__dirname, "../../.env"); // Look in project root
 require("dotenv").config({ path: dotenvPath });
 
+if (process.env.NODE_ENV !== 'test' && !process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is missing. Refusing to start with insecure auth configuration.');
+  process.exit(1);
+}
+
 // Log startup environment info
 console.log('🔧 Environment:', process.env.NODE_ENV || 'development');
 console.log('📍 Current directory:', __dirname);

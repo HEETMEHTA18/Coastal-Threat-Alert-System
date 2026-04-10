@@ -2,11 +2,18 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
+const getJwtSecret = () => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured');
+  }
+  return process.env.JWT_SECRET;
+};
+
 // Generate JWT Token
 const generateToken = (userId) => {
   return jwt.sign(
     { userId },
-    process.env.JWT_SECRET || 'your-secret-key',
+    getJwtSecret(),
     { expiresIn: '7d' }
   );
 };
@@ -42,9 +49,10 @@ const register = async (req, res) => {
       });
     }
 
-    // Validate role if provided
-    const validRoles = ['admin', 'operator', 'viewer', 'community_leader'];
-    const userRole = role && validRoles.includes(role) ? role : 'viewer';
+    // Prevent privilege escalation on public signup.
+    // Elevated roles must be assigned through a protected admin flow.
+    const publicRoles = ['viewer', 'community_leader'];
+    const userRole = role && publicRoles.includes(role) ? role : 'viewer';
 
     // Create user data object
     const userData = {

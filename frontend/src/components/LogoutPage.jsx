@@ -101,7 +101,7 @@ export const LogoutSuccessPage = ({ onReturnHome }) => {
     // Clear any remaining session data
     localStorage.removeItem('session_start');
     localStorage.removeItem('ctas_user');
-    localStorage.removeItem('ctas_token');
+    sessionStorage.removeItem('ctas_token');
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
