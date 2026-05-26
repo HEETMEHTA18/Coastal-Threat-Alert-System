@@ -13,6 +13,8 @@ services:
       cd backend && npm ci --production && cd ..
     startCommand: bash start_combined.sh
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
       - key: NODE_ENV
         value: production
       - key: PORT
