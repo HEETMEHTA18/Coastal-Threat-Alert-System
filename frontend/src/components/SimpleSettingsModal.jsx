@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sun, Moon, Monitor, Palette, User, Bell, Shield } from 'lucide-react';
-import { useAuth } from '../store/hooks';
+import { useAuth, useTheme } from '../store/hooks';
+import { setThemeMode } from '../store/slices/uiSlice';
 
 const SimpleSettingsModal = ({ isOpen, onClose }) => {
-  const [selectedTheme, setSelectedTheme] = useState('light');
+  const { mode: selectedTheme, dispatch } = useTheme();
   const [activeTab, setActiveTab] = useState('appearance');
 
   const { user } = useAuth();
+
+  const handleThemeChange = (themeId) => {
+    dispatch(setThemeMode(themeId));
+  };
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -39,26 +44,6 @@ const SimpleSettingsModal = ({ isOpen, onClose }) => {
     };
   }, [isOpen, onClose]);
 
-  // Apply theme changes to document
-  useEffect(() => {
-    if (selectedTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-    } else if (selectedTheme === 'light') {
-      document.documentElement.classList.add('light');
-      document.documentElement.classList.remove('dark');
-    } else {
-      // System theme
-      const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (isDarkMode) {
-        document.documentElement.classList.add('dark');
-        document.documentElement.classList.remove('light');
-      } else {
-        document.documentElement.classList.add('light');
-        document.documentElement.classList.remove('dark');
-      }
-    }
-  }, [selectedTheme]);
 
   if (!isOpen) return null;
 
@@ -177,7 +162,7 @@ const SimpleSettingsModal = ({ isOpen, onClose }) => {
                       return (
                         <button
                           key={theme.id}
-                          onClick={() => setSelectedTheme(theme.id)}
+                          onClick={() => handleThemeChange(theme.id)}
                           className={`p-6 rounded-xl border-2 transition-all duration-200 ${
                             isSelected
                               ? 'border-blue-500 bg-blue-500/10 shadow-lg'

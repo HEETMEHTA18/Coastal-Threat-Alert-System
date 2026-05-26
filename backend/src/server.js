@@ -63,10 +63,13 @@ const PORT = process.env.PORT || 3001;
 // Security Middleware
 app.use(helmet());
 
-// CORS Configuration - Use environment variable for allowed origins
-const allowedOrigins = process.env.CORS_ORIGINS 
-  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
-  : ['http://localhost:5173', 'http://localhost:3000'];
+// CORS Configuration - Include production Vercel frontend by default alongside env var configurations
+const allowedOrigins = [
+  ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim()) : []),
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://coastalguardian.vercel.app'
+];
 
 const corsOptions = {
   origin: allowedOrigins,
