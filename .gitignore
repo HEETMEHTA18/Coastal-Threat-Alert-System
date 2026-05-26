@@ -408,8 +408,11 @@ TODO.local.md
 db-backup/
 backups/
 
+# Local agent & database fallback configurations
+.antigravitycli/
+backend/data/
+
 # End of CTAS .gitignore
 
-
-
 .tooling/local-node
+
