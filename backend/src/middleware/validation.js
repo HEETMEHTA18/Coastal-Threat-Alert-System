@@ -22,8 +22,8 @@ const validateRegister = [
 
   body('role')
     .optional()
-    .isIn(['admin', 'operator', 'viewer', 'community_leader'])
-    .withMessage('Role must be one of: admin, operator, viewer, community_leader'),
+    .isIn(['operator', 'viewer', 'community_leader'])
+    .withMessage('Role must be one of: operator, viewer, community_leader'),
 
   body('organization')
     .optional()

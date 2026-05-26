@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AlertTriangle, MapPin, User, Phone, Mail, Building, MessageSquare, Thermometer, Wind, Eye } from 'lucide-react';
+import { API_CONFIG } from '../config/apiConfig';
 
 const initialState = {
   title: '',
@@ -8,6 +9,8 @@ const initialState = {
   severity: 'Medium',
   type: 'Coastal Emergency',
   location: '',
+  latitude: '',
+  longitude: '',
   reporter: '',
   phone: '',
   email: '',
@@ -52,8 +55,19 @@ export default function ThreatReportForm({ onSubmit, onClose }) {
   const handleSubmit = async e => {
     e.preventDefault();
     setLoading(true);
+    // Client-side validation
+    if (!form.title || !form.type) {
+      alert('Please enter a title and select a report type.');
+      setLoading(false);
+      return;
+    }
+    if (!form.location && !(form.latitude && form.longitude)) {
+      alert('Please provide a location name or click on the map to capture coordinates.');
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await fetch('http://localhost:3001/api/threatReports', {
+      const res = await fetch(`${API_CONFIG.NODE_API}/api/reports`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form)
@@ -77,6 +91,41 @@ export default function ThreatReportForm({ onSubmit, onClose }) {
     setLoading(false);
   };
 
+  // Listen for map coordinate selection events
+  React.useEffect(() => {
+    const handler = (e) => {
+      const { latitude, longitude } = e.detail || {};
+      if (latitude && longitude) {
+        setForm(f => ({ ...f, latitude: Number(latitude).toFixed(6), longitude: Number(longitude).toFixed(6) }));
+      }
+    };
+    window.addEventListener('map:coordinate-selected', handler);
+    return () => window.removeEventListener('map:coordinate-selected', handler);
+  }, []);
+
+  // Image upload handler
+  const handleFileChange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`${API_CONFIG.NODE_API}/api/media/upload`, { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Upload failed');
+      const json = await res.json();
+      if (json && json.url) {
+        setForm(f => ({ ...f, imageUrl: json.url }));
+        alert('Image uploaded successfully');
+      }
+    } catch (err) {
+      console.error('Upload error', err);
+      alert('Image upload failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (success) {
     return (
       <div className="bg-green-500/20 border border-green-500 rounded-2xl p-8 text-center">
@@ -85,6 +134,19 @@ export default function ThreatReportForm({ onSubmit, onClose }) {
         </div>
         <h2 className="text-2xl font-bold text-green-400 mb-2">Report Submitted Successfully!</h2>
         <p className="text-green-200">Your threat report has been received and will be reviewed by our team.</p>
+      </div>
+
+      {/* Media Upload */}
+      <div className="space-y-4 mb-6">
+        <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2">Photo / Evidence</h3>
+        <div>
+          <input type="file" accept="image/*" onChange={handleFileChange} className="text-sm text-gray-200" />
+          {form.imageUrl && (
+            <div className="mt-3">
+              <img src={form.imageUrl} alt="uploaded" className="w-40 h-28 object-cover rounded-lg border border-white/20" />
+            </div>
+          )}
+        </div>
       </div>
     );
   }

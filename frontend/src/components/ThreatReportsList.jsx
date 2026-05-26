@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, MapPin, User, Calendar, Phone, Mail, Building, RefreshCw, Filter } from 'lucide-react';
+import { API_CONFIG } from '../config/apiConfig';
 
 export default function ThreatReportsList() {
   const [reports, setReports] = useState([]);
@@ -9,7 +10,7 @@ export default function ThreatReportsList() {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/threatReports');
+      const res = await fetch(`${API_CONFIG.NODE_API}/api/threatReports`);
       if (res.ok) {
         const data = await res.json();
         setReports(data);

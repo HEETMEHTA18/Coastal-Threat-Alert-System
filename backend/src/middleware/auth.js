@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { prisma } = require('../lib/db');
 
 const getJwtSecret = () => {
   if (!process.env.JWT_SECRET) {
@@ -26,8 +26,11 @@ const authenticateToken = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, getJwtSecret());
     
-    // Find user
-    const user = await User.findById(decoded.userId).select('-password');
+    // Find user in PostgreSQL
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId }
+    });
+
     if (!user) {
       return res.status(401).json({
         status: 'error',
@@ -43,12 +46,19 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    // Add user info to request
+    // Add user info and permissions to request
     req.user = {
-      userId: user._id,
+      userId: user.id,
       email: user.email,
       role: user.role,
-      permissions: user.permissions
+      permissions: {
+        canCreateAlerts: user.canCreateAlerts,
+        canAcknowledgeAlerts: user.canAcknowledgeAlerts,
+        canGenerateReports: user.canGenerateReports,
+        canManageUsers: user.canManageUsers,
+        canViewDashboard: user.canViewDashboard,
+        canAccessAPI: user.canAccessAPI
+      }
     };
 
     next();
@@ -128,14 +138,23 @@ const optionalAuth = async (req, res, next) => {
 
     if (token) {
       const decoded = jwt.verify(token, getJwtSecret());
-      const user = await User.findById(decoded.userId).select('-password');
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId }
+      });
       
       if (user && user.status === 'active') {
         req.user = {
-          userId: user._id,
+          userId: user.id,
           email: user.email,
           role: user.role,
-          permissions: user.permissions
+          permissions: {
+            canCreateAlerts: user.canCreateAlerts,
+            canAcknowledgeAlerts: user.canAcknowledgeAlerts,
+            canGenerateReports: user.canGenerateReports,
+            canManageUsers: user.canManageUsers,
+            canViewDashboard: user.canViewDashboard,
+            canAccessAPI: user.canAccessAPI
+          }
         };
       }
     }

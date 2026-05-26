@@ -23,10 +23,10 @@ import {
   Menu
 } from 'lucide-react';
 import weatherService from '../services/weatherService';
-import FallbackMap from './FallbackMap';
 import OSMFallbackMap from './OSMFallbackMap';
 import OceanCurrentsPanel from './OceanCurrentsPanel';
 import CurrentsVisualizationService from '../services/currentsVisualizationService';
+import nodeAxios from '../services/nodeAxiosInstance';
 import { REGIONS, INDIA_BOUNDS, getRegionsGeoJSON, getRegionById } from '../data/indiaRegions';
 
 // Mapbox access token from environment variables (build-time). The app expects a
@@ -40,9 +40,10 @@ mapboxgl.accessToken = MAPBOX_TOKEN || '';
 const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
-  const [lng, setLng] = useState(72.8777); // Mumbai default
-  const [lat, setLat] = useState(19.0760);
-  const [zoom, setZoom] = useState(10);
+  // Default to world view unless user location is provided
+  const [lng, setLng] = useState(0);
+  const [lat, setLat] = useState(0);
+  const [zoom, setZoom] = useState(1.5);
   const [mapStyle, setMapStyle] = useState('satellite-v9');
   const [showLayers, setShowLayers] = useState(true);
   const [userLocation, setUserLocation] = useState(providedUserLocation || null);
@@ -59,196 +60,48 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
   const [showCurrentArrows, setShowCurrentArrows] = useState(false);
   const [selectedRegionId, setSelectedRegionId] = useState('all-india');
   const [mapReady, setMapReady] = useState(false);
+  const [coastalThreatData, setCoastalThreatData] = useState({ type: 'FeatureCollection', features: [] });
+  const hasMapboxToken = !!(MAPBOX_TOKEN && MAPBOX_TOKEN.startsWith('pk.'));
 
-  // If no build-time token is present, show the non-Mapbox fallback UI to avoid runtime errors.
-  if ((!MAPBOX_TOKEN || !MAPBOX_TOKEN.startsWith('pk.')) || mapError) {
-    return <FallbackMap />;
-  }
-
-  // Coastal threat zones data with real Indian coastal examples
-  const coastalThreatData = {
-    "type": "FeatureCollection",
-    "features": [
-      // CRITICAL RISK ZONES
-      {
-        "type": "Feature",
-        "properties": {
-          "name": "Sundarbans Delta (West Bengal)",
-          "threatLevel": "critical",
-          "category": "Sea Level Rise & Erosion",
-          "riskScore": 0.95,
-          "floodRisk": 0.9,
-          "stormSurgeRisk": 0.95,
-          "erosionRisk": 0.9,
-          "population": 4500000,
-          "description": "World's largest mangrove forest facing severe sea level rise and cyclone threats",
-          "lastUpdated": "2025-09-12T17:00:00Z",
-          "alerts": ["Extreme cyclone vulnerability", "Rapid erosion", "Saltwater intrusion"],
-          "examples": ["Ghoramara Island disappearing", "Mousuni Island shrinking", "Regular super cyclones"]
-        },
-        "geometry": {
-          "type": "Polygon",
-          "coordinates": [[
-            [88.5000, 21.5000],
-            [89.2000, 21.5000],
-            [89.2000, 22.3000],
-            [88.5000, 22.3000],
-            [88.5000, 21.5000]
-          ]]
+  // Try to fetch enhanced coastal features from backend for global coverage
+  useEffect(() => {
+    const fetchEnhanced = async () => {
+      try {
+        const res = await fetch((import.meta.env.VITE_API_URL || '') + '/api/enhanced-coastal/enhanced' );
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json && json.data) {
+          setCoastalThreatData(json.data);
         }
-      },
-      {
-        "type": "Feature",
-        "properties": {
-          "name": "Mumbai Metropolitan Coast",
-          "threatLevel": "critical",
-          "category": "Urban Flooding & Storm Surge",
-          "riskScore": 0.88,
-          "floodRisk": 0.9,
-          "stormSurgeRisk": 0.85,
-          "erosionRisk": 0.7,
-          "population": 12500000,
-          "description": "Densely populated megacity highly vulnerable to sea level rise and extreme weather",
-          "lastUpdated": "2025-09-12T17:00:00Z",
-          "alerts": ["Urban heat island effect", "Extreme rainfall flooding", "High tide inundation"],
-          "examples": ["2005 Mumbai floods", "Worli-Bandra flooding", "Mithi River overflow"]
-        },
-        "geometry": {
-          "type": "Polygon",
-          "coordinates": [[
-            [72.7500, 18.9000],
-            [72.9500, 18.9000],
-            [72.9500, 19.2000],
-            [72.7500, 19.2000],
-            [72.7500, 18.9000]
-          ]]
-        }
-      },
-      // HIGH RISK ZONES
-      {
-        "type": "Feature",
-        "properties": {
-          "name": "Chennai-Mahabalipuram Coast",
-          "threatLevel": "high",
-          "category": "Storm Surge & Erosion",
-          "riskScore": 0.78,
-          "floodRisk": 0.8,
-          "stormSurgeRisk": 0.85,
-          "erosionRisk": 0.75,
-          "population": 8500000,
-          "description": "Major coastal city with increasing cyclone intensity and sea level rise",
-          "lastUpdated": "2025-09-12T17:00:00Z",
-          "alerts": ["Northeast monsoon flooding", "Coastal erosion", "Cyclone vulnerability"],
-          "examples": ["Cyclone Vardah (2016)", "Marina Beach erosion", "Ennore Creek pollution"]
-        },
-        "geometry": {
-          "type": "Polygon",
-          "coordinates": [[
-            [80.1500, 12.8000],
-            [80.3500, 12.8000],
-            [80.3500, 13.2000],
-            [80.1500, 13.2000],
-            [80.1500, 12.8000]
-          ]]
-        }
-      },
-      // MEDIUM RISK ZONES  
-      {
-        "type": "Feature",
-        "properties": {
-          "name": "Goa Coastal Belt",
-          "threatLevel": "medium",
-          "category": "Tourism & Development Pressure",
-          "riskScore": 0.58,
-          "floodRisk": 0.6,
-          "stormSurgeRisk": 0.5,
-          "erosionRisk": 0.65,
-          "population": 800000,
-          "description": "Popular tourist destination facing development pressure and moderate climate risks",
-          "lastUpdated": "2025-09-12T17:00:00Z",
-          "alerts": ["Beach erosion", "Tourism pollution", "Monsoon flooding"],
-          "examples": ["Baga Beach erosion", "Mandovi pollution", "Seasonal flooding"]
-        },
-        "geometry": {
-          "type": "Polygon",
-          "coordinates": [[
-            [73.7000, 15.2000],
-            [74.0000, 15.2000],
-            [74.0000, 15.6000],
-            [73.7000, 15.6000],
-            [73.7000, 15.2000]
-          ]]
-        }
+      } catch (err) {
+        // ignore - backend may not provide global dataset
       }
-    ]
-  };
+    };
+    fetchEnhanced();
+  }, []);
 
-  // Emergency shelter locations across Indian coastal states
-  const emergencyShelterData = {
-    "type": "FeatureCollection",
-    "features": [
-      // West Bengal Shelters
-      {
-        "type": "Feature",
-        "properties": {
-          "name": "Digha Cyclone Shelter",
-          "type": "emergency_shelter",
-          "capacity": 5000,
-          "facilities": ["Medical aid", "Food distribution", "Communication center"],
-          "contact": "+91-3220-267001"
-        },
-        "geometry": {
-          "type": "Point",
-          "coordinates": [87.5127, 21.6288]
-        }
-      },
-      // Maharashtra Shelters
-      {
-        "type": "Feature",
-        "properties": {
-          "name": "Bandra Emergency Shelter",
-          "type": "emergency_shelter",
-          "capacity": 6000,
-          "facilities": ["Multi-story shelter", "Medical wing", "Rescue coordination"],
-          "contact": "+91-22-26515151"
-        },
-        "geometry": {
-          "type": "Point",
-          "coordinates": [72.8397, 19.0596]
-        }
-      },
-      // Tamil Nadu Shelters
-      {
-        "type": "Feature",
-        "properties": {
-          "name": "Marina Beach Relief Center",
-          "type": "emergency_shelter",
-          "capacity": 7000,
-          "facilities": ["Large auditorium", "Medical facility", "Food distribution"],
-          "contact": "+91-44-28460000"
-        },
-        "geometry": {
-          "type": "Point",
-          "coordinates": [80.2785, 13.0475]
-        }
-      },
-      // Kerala Shelters
-      {
-        "type": "Feature",
-        "properties": {
-          "name": "Kochi Emergency Response Center",
-          "type": "emergency_shelter",
-          "capacity": 4500,
-          "facilities": ["Naval coordination", "Medical facility", "Helicopter landing"],
-          "contact": "+91-484-2668221"
-        },
-        "geometry": {
-          "type": "Point",
-          "coordinates": [76.2673, 9.9312]
-        }
-      }
-    ]
-  };
+  // Attempt to get precise browser geolocation for better map centering
+  useEffect(() => {
+    if (providedUserLocation) {
+      setUserLocation(providedUserLocation);
+      setLng(providedUserLocation.lng ?? providedUserLocation.longitude ?? 0);
+      setLat(providedUserLocation.lat ?? providedUserLocation.latitude ?? 0);
+      setZoom(10);
+      return;
+    }
+
+    if (navigator && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const { latitude, longitude } = pos.coords;
+        setUserLocation({ latitude, longitude });
+        setLng(longitude);
+        setLat(latitude);
+        setZoom(9);
+      }, (err) => {
+        setLocationError(err.message || 'Geolocation failed');
+      }, { maximumAge: 5 * 60 * 1000, timeout: 5000 });
+    }
+  }, [providedUserLocation]);
 
   // Handle map click for ocean current data
   const handleMapClick = (e) => {
@@ -257,6 +110,12 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
       lng: e.lngLat.lng
     });
     setIsOceanPanelOpen(true);
+    // Broadcast selected coordinates so forms can pick them up
+    try {
+      window.dispatchEvent(new CustomEvent('map:coordinate-selected', { detail: { latitude: e.lngLat.lat, longitude: e.lngLat.lng } }));
+    } catch (err) {
+      // ignore
+    }
   };
 
   // Toggle current arrows visualization
@@ -289,6 +148,54 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
     }
   };
 
+  const addLiveCommunityReportMarkers = async (mapInstance) => {
+    try {
+      const response = await nodeAxios.get('/community-reports');
+      const reports = response.data?.reports || [];
+
+      reports.forEach((report) => {
+        const latitude = Number(report.latitude ?? report.coordinates?.lat);
+        const longitude = Number(report.longitude ?? report.coordinates?.lng);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+        const el = document.createElement('div');
+        const severityColors = {
+          critical: '#dc2626',
+          high: '#f97316',
+          medium: '#eab308',
+          low: '#2563eb'
+        };
+        const color = severityColors[report.severity?.toLowerCase()] || '#2563eb';
+
+        el.style.width = '16px';
+        el.style.height = '16px';
+        el.style.borderRadius = '999px';
+        el.style.backgroundColor = color;
+        el.style.border = '2px solid #ffffff';
+        el.style.boxShadow = '0 8px 18px rgba(15, 23, 42, 0.28)';
+        el.style.cursor = 'pointer';
+
+        const popupContent = `
+          <div style="color:#0f172a; min-width:220px; font-family:Inter, system-ui, sans-serif;">
+            <h3 style="margin:0 0 6px; font-size:14px; font-weight:800;">${report.title || 'Community report'}</h3>
+            <p style="margin:0 0 8px; font-size:12px; color:#475569;">${report.location || 'Location not specified'}</p>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; font-size:11px;">
+              <span style="background:${color}1f; color:${color}; padding:3px 7px; border-radius:999px; font-weight:700;">${(report.severity || 'medium').toUpperCase()}</span>
+              <span style="background:#f1f5f9; color:#334155; padding:3px 7px; border-radius:999px; font-weight:700;">${(report.reportType || 'report').toUpperCase()}</span>
+            </div>
+          </div>
+        `;
+
+        new mapboxgl.Marker(el)
+          .setLngLat([longitude, latitude])
+          .setPopup(new mapboxgl.Popup({ offset: 18 }).setHTML(popupContent))
+          .addTo(mapInstance);
+      });
+    } catch (error) {
+      console.warn('Could not load community report markers:', error.message);
+    }
+  };
+
   // Update userLocation when prop changes
   useEffect(() => {
     if (providedUserLocation && providedUserLocation.lat && providedUserLocation.lng) {
@@ -306,6 +213,7 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
 
   // Initialize map
   useEffect(() => {
+    if (!hasMapboxToken || mapError) return undefined;
     if (map.current) return; // Initialize map only once
 
     map.current = new mapboxgl.Map({
@@ -440,26 +348,76 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
         }
       });
 
-      // Add emergency shelters
-      map.current.addSource('shelters', {
-        'type': 'geojson',
-        'data': emergencyShelterData
-      });
-
-      map.current.addLayer({
-        'id': 'shelters',
-        'type': 'circle',
-        'source': 'shelters',
-        'paint': {
-          'circle-radius': 8,
-          'circle-color': '#10b981',
-          'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': 2
-        }
-      });
-
       // Add click handler for ocean currents
       map.current.on('click', handleMapClick);
+      addLiveCommunityReportMarkers(map.current);
+
+      // Setup buoy and heatmap sources (will be populated after moveend)
+      if (!map.current.getSource('buoys')) {
+        map.current.addSource('buoys', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        map.current.addLayer({
+          id: 'buoys-layer',
+          type: 'circle',
+          source: 'buoys',
+          paint: {
+            'circle-radius': 6,
+            'circle-color': '#0ea5a4',
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#ffffff'
+          }
+        });
+      }
+
+      if (!map.current.getSource('coastal-heatmap')) {
+        map.current.addSource('coastal-heatmap', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        map.current.addLayer({
+          id: 'coastal-heatmap-layer',
+          type: 'heatmap',
+          source: 'coastal-heatmap',
+          paint: {
+            'heatmap-weight': ['get', 'intensity'],
+            'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 9, 3],
+            'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(0,0,255,0)', 0.2, 'royalblue', 0.4, 'cyan', 0.6, 'yellow', 0.8, 'orange', 1, 'red'],
+            'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 2, 9, 20]
+          }
+        });
+      }
+
+      // Fetch buoys/heatmap on viewport change (moveend)
+      const handleMoveEnd = async () => {
+        if (!map.current) return;
+        const boundsObj = map.current.getBounds();
+        const bounds = {
+          sw: { lng: boundsObj.getSouthWest().lng, lat: boundsObj.getSouthWest().lat },
+          ne: { lng: boundsObj.getNorthEast().lng, lat: boundsObj.getNorthEast().lat }
+        };
+
+        // Fetch buoys
+        try {
+          const buoysRes = await fetch((import.meta.env.VITE_API_URL || '') + '/api/enhanced-coastal/buoys?bounds=' + encodeURIComponent(JSON.stringify(bounds)));
+          if (buoysRes.ok) {
+            const buoysJson = await buoysRes.json();
+            const features = (buoysJson.buoys || []).map(b => ({ type: 'Feature', properties: { id: b.id, name: b.name, type: b.type, state: b.state }, geometry: { type: 'Point', coordinates: b.coordinates } }));
+            const fc = { type: 'FeatureCollection', features };
+            try { map.current.getSource('buoys').setData(fc); } catch (e) { }
+          }
+        } catch (e) { }
+
+        // Fetch heatmap (waves)
+        try {
+          const heatRes = await fetch((import.meta.env.VITE_API_URL || '') + '/api/enhanced-coastal/heatmap/waves?bounds=' + encodeURIComponent(JSON.stringify(bounds)));
+          if (heatRes.ok) {
+            const heatJson = await heatRes.json();
+            const points = (heatJson.data || heatJson.heatmap_data || []).map(p => ({ type: 'Feature', properties: { intensity: p.intensity || p.wave_height || 1 }, geometry: { type: 'Point', coordinates: p.coordinates } }));
+            const fc2 = { type: 'FeatureCollection', features: points };
+            try { map.current.getSource('coastal-heatmap').setData(fc2); } catch (e) { }
+          }
+        } catch (e) { }
+      };
+
+      map.current.on('moveend', handleMoveEnd);
+      // Trigger initial load
+      setTimeout(handleMoveEnd, 800);
 
       // draw/report tool initialization removed — mount it separately using MapDrawReportControl
 
@@ -469,14 +427,6 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
         new mapboxgl.Popup()
           .setLngLat(e.lngLat)
           .setHTML(createThreatZonePopup(properties))
-          .addTo(map.current);
-      });
-
-      map.current.on('click', 'shelters', (e) => {
-        const properties = e.features[0].properties;
-        new mapboxgl.Popup()
-          .setLngLat(e.lngLat)
-          .setHTML(createShelterPopup(properties))
           .addTo(map.current);
       });
 
@@ -563,7 +513,7 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
         map.current = null;
       }
     };
-  }, []);
+  }, [hasMapboxToken, mapError]);
 
   // Update highlight filter when selectedRegionId changes
   useEffect(() => {
@@ -632,28 +582,10 @@ const MapboxCoastalMonitor = ({ userLocation: providedUserLocation }) => {
     `;
   };
 
-  // Create shelter popup content
-  const createShelterPopup = (properties) => {
-    return `
-      <div class="shelter-popup">
-        <h3 class="font-bold text-lg mb-2">${properties.name}</h3>
-        <div class="space-y-2">
-          <div class="text-sm">
-            <strong>Capacity:</strong> ${properties.capacity} people
-          </div>
-          <div class="text-sm">
-            <strong>Contact:</strong> ${properties.contact}
-          </div>
-          <div class="text-sm">
-            <strong>Facilities:</strong>
-            <ul class="text-xs mt-1">
-              ${properties.facilities.map(facility => `<li>• ${facility}</li>`).join('')}
-            </ul>
-          </div>
-        </div>
-      </div>
-    `;
-  };
+  if (!hasMapboxToken || mapError) {
+    const center = userLocation?.lng && userLocation?.lat ? [userLocation.lng, userLocation.lat] : [72.8777, 19.0760];
+    return <OSMFallbackMap center={center} zoom={userLocation ? 9 : 5} height="100%" />;
+  }
 
   return (
     <div className="relative w-full h-full bg-gray-900">

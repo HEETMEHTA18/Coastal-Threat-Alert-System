@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 
 import FallbackMap from './FallbackMap';
+import nodeAxios from '../services/nodeAxiosInstance';
 
 // Read Mapbox access token from env (no hard-coded fallback)
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
@@ -50,9 +51,9 @@ const EnhancedSatelliteMap = () => {
   const animationFrame = useRef(null);
   const waveAnimationTime = useRef(0);
 
-  // Gujarat and Mumbai coastal focus area (Arabian Sea) with optimized coverage
-  const centerCoordinates = [72.8777, 19.0760]; // Mumbai coordinates
-  const initialZoom = 8; // Restored to focus on key area
+  // Default to global world view for comprehensive monitoring
+  const centerCoordinates = [10.0, 25.0]; // Neutral world center
+  const initialZoom = 1.8; // World view zoom
 
   // Optimized regional bounds for memory efficiency
   const regionalBounds = {
@@ -108,6 +109,7 @@ const EnhancedSatelliteMap = () => {
             addCurrentFlowLayer(mapInstance);
             addMultiCountryThreatData(mapInstance); // Add multi-country threat zones
             addBuoyMarkers(mapInstance);
+            addLiveCommunityReportMarkers(mapInstance);
             
             console.log('✅ All layers added successfully');
             setMap(mapInstance);
@@ -115,8 +117,7 @@ const EnhancedSatelliteMap = () => {
             setError(null);
             setRetryCount(0);
 
-            // Fit to India for default full-country view
-            try { mapInstance.fitBounds(INDIA_BOUNDS, { padding: 60, duration: 1000 }); } catch(e) {}
+            // No bounds fit to allow full world navigation
             
             // Start animation after layers are added
             setTimeout(() => {
@@ -202,8 +203,8 @@ const EnhancedSatelliteMap = () => {
         map.off();
         
         // Remove all sources and layers
-        const layers = ['wave-heatmap-layer', 'wave-contours', 'temperature-heatmap', 'current-arrows', 'weather-radar-layer'];
-        const sources = ['wave-heatmap', 'temperature', 'current-flow', 'weather-radar'];
+        const layers = ['wave-heatmap-layer', 'wave-contours', 'temperature-heatmap-layer', 'current-arrows', 'weather-radar-layer'];
+        const sources = ['wave-heatmap', 'temperature-heatmap', 'current-flow', 'weather-radar'];
         
         layers.forEach(layerId => {
           if (map.getLayer(layerId)) {
@@ -385,47 +386,65 @@ const EnhancedSatelliteMap = () => {
   };
 
   // Add Indian coastal monitoring stations
-  const addBuoyMarkers = (mapInstance) => {
+  const addBuoyMarkers = async (mapInstance) => {
     console.log('🏭 Adding fixed coastal station markers...');
     
-    // Fixed coordinates for Indian coastal stations - reduced to 3 main stations
-    const indianCoastalStations = [
+    // Fixed coordinates for Indian coastal stations - fallback
+    let stationsList = [
       { 
         id: 'mumbai_port', 
         name: 'Mumbai Port - Gateway of India', 
-        coords: [72.8347, 18.9220], // Fixed coordinates
+        coords: [72.8347, 18.9220],
         waveHeight: 2.3, 
         period: 9.2,
         type: 'major_port',
-        state: 'Maharashtra'
+        state: 'Maharashtra',
+        region: 'Arabian Sea'
       },
       { 
         id: 'kandla_port', 
         name: 'Kandla Port - Gujarat', 
-        coords: [70.2167, 23.0333], // Fixed coordinates
+        coords: [70.2167, 23.0333],
         waveHeight: 1.9, 
         period: 8.1,
         type: 'major_port',
-        state: 'Gujarat'
+        state: 'Gujarat',
+        region: 'Arabian Sea'
       },
       { 
         id: 'mumbai_offshore', 
         name: 'Mumbai Offshore Platform', 
-        coords: [72.6500, 19.2500], // Fixed coordinates
+        coords: [72.6500, 19.2500],
         waveHeight: 2.8, 
         period: 10.1,
         type: 'offshore_platform',
-        state: 'Maharashtra'
+        state: 'Maharashtra',
+        region: 'Arabian Sea'
       }
     ];
 
-    // Store markers to prevent duplication
-    const stationMarkers = [];
+    try {
+      const response = await nodeAxios.get('/noaa/stations');
+      if (response.data && response.data.success && response.data.stations) {
+        // Map backend stations
+        stationsList = response.data.stations.map(st => ({
+          id: st.id,
+          name: st.name,
+          coords: [st.lon, st.lat],
+          waveHeight: st.type === 'current' ? 1.4 : 0.9,
+          period: 7.2,
+          type: st.type === 'current' ? 'coastal_monitor' : 'monitoring_station',
+          state: st.region || 'US Coast',
+          region: st.region || 'Chesapeake Bay'
+        }));
+        console.log('✅ Loaded live NOAA stations from backend:', stationsList);
+      }
+    } catch (err) {
+      console.warn('Could not fetch live NOAA stations, using default ones:', err);
+    }
 
-    indianCoastalStations.forEach(station => {
-      console.log(`📍 Adding fixed station: ${station.name} at [${station.coords[0]}, ${station.coords[1]}]`);
-      
-      // Create FIXED marker element with no movement animations
+    stationsList.forEach(station => {
+      // Create FIXED marker element
       const el = document.createElement('div');
       el.className = 'indian-buoy-marker-fixed';
       el.id = `station-${station.id}`;
@@ -449,48 +468,108 @@ const EnhancedSatelliteMap = () => {
           <div class="station-data-fixed">
             <div class="wave-height">${station.waveHeight}m</div>
             <div class="wave-period">${station.period}s</div>
-            <div class="station-state">${station.state}</div>
+            <div class="station-state">${station.state.substring(0, 8)}...</div>
           </div>
         </div>
       `;
 
-      // Create marker with LOCKED position - will NOT move
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat(station.coords) // Fixed coordinates - no updates
+      new mapboxgl.Marker(el)
+        .setLngLat(station.coords)
         .setPopup(new mapboxgl.Popup({ 
           offset: 25,
           closeButton: true,
           closeOnClick: false 
         }).setHTML(`
-          <div class="indian-station-popup">
-            <h3>${station.name}</h3>
-            <div class="station-details">
+          <div class="indian-station-popup" style="color: #0f172a; padding: 0.5rem; font-family: sans-serif;">
+            <h3 style="margin: 0 0 0.5rem 0; font-weight: 700; font-size: 0.95rem; color: #1e3a8a;">${station.name}</h3>
+            <div class="station-details" style="font-size: 0.8rem; line-height: 1.4;">
               <p><strong>🌍 Coordinates:</strong> ${station.coords[1].toFixed(4)}°N, ${station.coords[0].toFixed(4)}°E</p>
-              <p><strong>🏛️ State:</strong> ${station.state}</p>
+              <p><strong>🏛️ Area:</strong> ${station.state}</p>
               <p><strong>⚓ Type:</strong> ${station.type.replace('_', ' ').toUpperCase()}</p>
               <p><strong>🌊 Wave Height:</strong> ${station.waveHeight}m</p>
               <p><strong>⏱️ Wave Period:</strong> ${station.period}s</p>
-              <p><strong>🟢 Status:</strong> <span class="status-active">Operational</span></p>
-              <p><strong>🌊 Region:</strong> Arabian Sea</p>
-              <p><strong>📍 Position:</strong> FIXED - No Movement</p>
+              <p><strong>🟢 Status:</strong> <span style="color: #10b981; font-weight: 600;">Operational</span></p>
+              <p><strong>🌊 Region:</strong> ${station.region}</p>
             </div>
           </div>
         `))
         .addTo(mapInstance);
-        
-      stationMarkers.push(marker);
-      console.log(`✅ Fixed station marker added: ${station.name}`);
     });
-    
-    console.log(`🎯 Total ${stationMarkers.length} fixed coastal stations added to map`);
   };
 
-  // Add temperature layer
+  // Add live community threat reports onto the map
+  const addLiveCommunityReportMarkers = async (mapInstance) => {
+    console.log('📝 Fetching live community reports for map markers...');
+    try {
+      const response = await nodeAxios.get('/community-reports');
+      if (response.data && response.data.success && response.data.reports) {
+        const reports = response.data.reports;
+        console.log(`🎯 Adding ${reports.length} live community reports to the map.`);
+        
+        reports.forEach(report => {
+          if (!report.latitude || !report.longitude) return;
+          
+          const el = document.createElement('div');
+          el.className = 'live-community-report-marker';
+          
+          const severityColors = {
+            critical: '#ef4444',
+            high: '#f97316',
+            medium: '#eab308',
+            low: '#3b82f6'
+          };
+          
+          const color = severityColors[report.severity?.toLowerCase()] || '#3b82f6';
+          
+          el.style.backgroundColor = color;
+          el.style.width = '24px';
+          el.style.height = '24px';
+          el.style.borderRadius = '50%';
+          el.style.border = '2px solid white';
+          el.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+          el.style.cursor = 'pointer';
+          el.style.display = 'flex';
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.fontSize = '12px';
+          el.innerHTML = '🚨';
+          
+          const popupContent = `
+            <div style="color: #0f172a; padding: 0.5rem; font-family: sans-serif; min-width: 220px; line-height: 1.4;">
+              <h3 style="margin: 0 0 0.25rem 0; font-weight: 700; font-size: 0.95rem; color: #1e3a8a;">${report.title}</h3>
+              <p style="margin: 0 0 0.5rem 0; font-size: 0.8rem; color: #475569;">${report.description}</p>
+              <div style="margin-bottom: 0.5rem; font-size: 0.75rem; color: #334155;">
+                <strong>📍 Location:</strong> ${report.location}<br/>
+                <strong>👤 Submitted By:</strong> ${report.contactName} (${report.contactOrganization || 'Community Member'})<br/>
+                <strong>📞 Phone:</strong> ${report.contactPhone}
+              </div>
+              <div style="display: flex; gap: 0.5rem; font-size: 0.7rem; margin-top: 0.25rem;">
+                <span style="background: ${color}20; color: ${color}; padding: 0.15rem 0.45rem; border-radius: 9999px; font-weight: 700; border: 1px solid ${color}40;">
+                  ${report.severity?.toUpperCase()}
+                </span>
+                <span style="background: #f1f5f9; color: #475569; padding: 0.15rem 0.45rem; border-radius: 9999px; border: 1px solid #e2e8f0; font-weight: 500;">
+                  ${report.reportType?.toUpperCase()}
+                </span>
+              </div>
+            </div>
+          `;
+          
+          new mapboxgl.Marker(el)
+            .setLngLat([parseFloat(report.longitude), parseFloat(report.latitude)])
+            .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent))
+            .addTo(mapInstance);
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to load community reports for map markers:', error);
+    }
+  };
+
   const addTemperatureLayer = (mapInstance) => {
     try {
       const tempData = generateTemperatureData();
       
-      mapInstance.addSource('temperature', {
+      mapInstance.addSource('temperature-heatmap', {
         type: 'geojson',
         data: {
           type: 'FeatureCollection',
@@ -499,9 +578,9 @@ const EnhancedSatelliteMap = () => {
       });
 
       mapInstance.addLayer({
-        id: 'temperature-heatmap',
+        id: 'temperature-heatmap-layer',
         type: 'heatmap',
-        source: 'temperature',
+        source: 'temperature-heatmap',
         layout: {
           visibility: 'none' // Always start hidden
         },
@@ -1311,7 +1390,7 @@ const EnhancedSatelliteMap = () => {
 
       const layerIds = {
         waves: ['wave-heatmap-layer', 'wave-contours'],
-        temperature: ['temperature-heatmap'],
+        temperature: ['temperature-heatmap-layer'],
         currents: ['current-arrows'],
         weather: ['weather-radar-layer'],
         threats: ['multi-country-threat-zones', 'multi-country-threat-borders', 'country-labels']
@@ -1391,6 +1470,7 @@ const EnhancedSatelliteMap = () => {
           addTemperatureLayer(map);
           addCurrentFlowLayer(map);
           addBuoyMarkers(map);
+          addLiveCommunityReportMarkers(map);
           console.log('✅ Layers re-added after style change');
         }, 500);
       });

@@ -16,10 +16,8 @@ export default function WeatherWidget() {
   const [alerts, setAlerts] = useState([]);
   const [showFAQs, setShowFAQs] = useState(false);
 
-  // Determine whether we have any weather configuration available:
-  // - Prefer a server-side proxy (VITE_NODE_API_URL)
-  // - Otherwise a client-side OpenWeather API key (VITE_OPENWEATHER_API_KEY)
-  const hasWeatherConfig = !!(import.meta.env.VITE_NODE_API_URL || import.meta.env.VITE_OPENWEATHER_API_KEY);
+  // Weather data is fetched through the backend proxy.
+  const hasWeatherConfig = !!(import.meta.env.VITE_NODE_API_URL || import.meta.env.VITE_WEATHER_API_KEY);
 
   // Log API key status only once
   useEffect(() => {
@@ -228,8 +226,7 @@ export default function WeatherWidget() {
         }}
       >
         <p>
-          Weather configuration is missing. Provide a server proxy URL via `VITE_NODE_API_URL` (recommended)
-          or set a client key `VITE_OPENWEATHERMAP_API_KEY` in `frontend/.env`.
+          Weather configuration is missing. Provide a server proxy URL via `VITE_NODE_API_URL` so the widget can fetch live OpenWeather data.
         </p>
       </div>
     );

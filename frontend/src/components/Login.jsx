@@ -20,6 +20,19 @@ const Login = ({ onBack }) => {
     password: "",
   });
 
+  const getRoleLandingPage = (role) => {
+    switch (role) {
+      case 'viewer':
+        return '/dashboard';
+      case 'community_leader':
+        return '/dashboard/reports';
+      case 'operator':
+        return '/dashboard/analytics';
+      default:
+        return '/dashboard';
+    }
+  };
+
   // Redirect already authenticated users to dashboard
   useEffect(() => {
     if (isAuthenticated) {
@@ -83,8 +96,8 @@ const Login = ({ onBack }) => {
         // Set session start time for logout page statistics
         localStorage.setItem('session_start', Date.now().toString());
         
-        // Navigate to dashboard or the page they came from
-        const from = location.state?.from || '/dashboard';
+        // Navigate to the page they came from, otherwise use a role-aware landing page
+        const from = location.state?.from || getRoleLandingPage(user?.role);
         navigate(from);
       }
     } catch (error) {
@@ -191,7 +204,7 @@ const Login = ({ onBack }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-3 text-base shadow-lg min-h-[56px] touch-manipulation"
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 px-6 rounded-2xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl hover:shadow-slate-950/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-3 text-base shadow-lg min-h-[56px] touch-manipulation"
             >
               {loading ? (
                 <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

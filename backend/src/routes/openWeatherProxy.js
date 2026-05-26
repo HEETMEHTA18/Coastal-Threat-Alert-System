@@ -3,8 +3,8 @@ const router = express.Router();
 const OpenWeatherMapService = require('../services/openWeatherMapService');
 const cache = require('../lib/cache');
 
-// Initialize service with server-side API key
-const apiKey = process.env.OPENWEATHER_API_KEY || null;
+// Initialize service with WEATHER_API_KEY only
+const apiKey = process.env.WEATHER_API_KEY || null;
 let weatherService = null;
 if (apiKey) {
   try {
@@ -40,7 +40,7 @@ router.get('/test', async (req, res) => {
 router.get('/status', (req, res) => {
   try {
     const configured = !!weatherService;
-    const hasKey = !!process.env.OPENWEATHER_API_KEY;
+    const hasKey = !!process.env.WEATHER_API_KEY;
     res.json({ status: 'success', configured, hasKey });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });

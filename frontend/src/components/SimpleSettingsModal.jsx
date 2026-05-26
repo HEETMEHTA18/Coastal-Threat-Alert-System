@@ -3,7 +3,7 @@ import { X, Sun, Moon, Monitor, Palette, User, Bell, Shield } from 'lucide-react
 import { useAuth } from '../store/hooks';
 
 const SimpleSettingsModal = ({ isOpen, onClose }) => {
-  const [selectedTheme, setSelectedTheme] = useState('dark');
+  const [selectedTheme, setSelectedTheme] = useState('light');
   const [activeTab, setActiveTab] = useState('appearance');
 
   const { user } = useAuth();

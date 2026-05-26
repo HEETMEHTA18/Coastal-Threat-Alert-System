@@ -108,22 +108,22 @@ router.get('/heatmap/:type/:station?', async (req, res) => {
   }
 });
 
-// Get buoy network data
-router.get('/buoys/:bounds?', async (req, res) => {
+// Get buoy network data (accepts bounds via query: ?bounds=<JSON>)
+router.get('/buoys', async (req, res) => {
   try {
-    const bounds = req.params.bounds ? JSON.parse(req.params.bounds) : null;
-    
+    const bounds = req.query.bounds ? JSON.parse(req.query.bounds) : null;
+
     console.log(`🛟 Buoy network request for bounds:`, bounds);
-    
+
     const buoyNetwork = await enhancedCoastalService.getBuoyNetwork(bounds);
-    
+
     res.json({
       success: true,
       buoy_count: buoyNetwork.length,
       buoys: buoyNetwork,
       timestamp: new Date().toISOString()
     });
-    
+
   } catch (error) {
     console.error('Buoy network data error:', error);
     res.status(500).json({

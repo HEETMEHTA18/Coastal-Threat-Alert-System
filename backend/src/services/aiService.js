@@ -2,7 +2,7 @@ const axios = require('axios');
 
 class AIService {
   constructor() {
-    this.aiServiceURL = process.env.PYTHON_AI_SERVICE_URL || 'http://localhost:8000';
+    this.aiServiceURL = process.env.PYTHON_AI_SERVICE_URL || 'http://127.0.0.1:8000';
     this.timeout = 30000; // 30 seconds timeout
   }
 

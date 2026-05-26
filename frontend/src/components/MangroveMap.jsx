@@ -17,7 +17,7 @@ const problemAreas = [
 
 const MangroveMap = ({ reports = [] }) => (
   <div className="w-full h-96 rounded-2xl shadow-xl bg-white/20 backdrop-blur-lg">
-    <MapContainer center={[19.076, 72.877]} zoom={7} scrollWheelZoom={true} style={{ height: '100%', width: '100%', borderRadius: '1rem' }}>
+   <MapContainer center={[0, 0]} zoom={1.5} scrollWheelZoom={true} style={{ height: '100%', width: '100%', borderRadius: '1rem' }}>
       <LayersControl position="topright">
         <BaseLayer checked name="Satellite">
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />

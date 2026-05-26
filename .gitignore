@@ -409,3 +409,7 @@ db-backup/
 backups/
 
 # End of CTAS .gitignore
+
+
+
+.tooling/local-node

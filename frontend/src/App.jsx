@@ -12,6 +12,7 @@ import { useUI, useAuth } from './store/hooks';
 import { setCurrentView, setAppLoading } from './store/slices/uiSlice';
 import { initializeAuth, setDemoUser, logoutUser } from './store/slices/authSlice';
 import { useInternetConnectivity } from './hooks/useConnectivity';
+import { useWebsocketStream } from './hooks/useWebsocketStream';
 
 // ProtectedRoute component to handle authentication
 const ProtectedRoute = ({ children }) => {
@@ -57,6 +58,9 @@ function AppContent() {
 
   // Initialize internet connectivity monitoring
   useInternetConnectivity();
+
+  // Initialize live satellite/sensor WebSocket stream
+  useWebsocketStream();
 
   // Debug: Only log when authentication state changes
   const prevAuthState = useRef({ user, isAuthenticated, loading: loading.app });

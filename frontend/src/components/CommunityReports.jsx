@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../services/axiosInstance';
+import { useAuth } from '../store/hooks';
 import { 
   Plus, Filter, Search, MapPin, Clock, User, AlertTriangle, 
   CheckCircle, X, Eye, MessageSquare, Phone, Share2, Users,
@@ -7,6 +8,7 @@ import {
   ExternalLink, Map, MoreVertical, Edit, Trash2, Camera
 } from 'lucide-react';
 import CommunityReportForm from './CommunityReportForm';
+import { API_CONFIG } from '../config/apiConfig';
 
 const CommunityReports = () => {
   const [reports, setReports] = useState([]);
@@ -23,6 +25,11 @@ const CommunityReports = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sending, setSending] = useState({});
+  const [broadcastTitle, setBroadcastTitle] = useState('Coastal Guardian Broadcast');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcasting, setBroadcasting] = useState(false);
+  const { user } = useAuth();
+  const isOperator = user?.role === 'operator';
 
   // Handle keyboard events
   useEffect(() => {
@@ -40,15 +47,53 @@ const CommunityReports = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [selectedReport, showReportForm]);
 
+  const normalizeReportsData = (rawReports) => {
+    if (!Array.isArray(rawReports)) return [];
+    return rawReports.map(report => {
+      const reportType = report.reportType || report.type || 'environmental';
+      const contactInfo = {
+        name: report.contactInfo?.name || report.contactName || 'Anonymous',
+        phone: report.contactInfo?.phone || report.contactPhone || 'N/A',
+        email: report.contactInfo?.email || report.contactEmail || 'N/A',
+        organization: report.contactInfo?.organization || report.contactOrganization || ''
+      };
+      
+      const normalizedMedia = (report.media || []).map(item => {
+        if (typeof item === 'string') {
+          return {
+            url: item,
+            filename: item,
+            mimetype: item.toLowerCase().includes('.mp4') || item.toLowerCase().includes('.webm') ? 'video/mp4' : 'image/jpeg',
+            originalName: 'Attachment'
+          };
+        }
+        return item;
+      });
+      
+      return {
+        ...report,
+        reportType,
+        contactInfo,
+        media: normalizedMedia,
+        severity: report.severity || 'medium',
+        status: report.status || 'active',
+        location: report.location || 'Unknown Location',
+        title: report.title || 'Untitled Report',
+        description: report.description || 'No description provided.',
+        createdAt: report.createdAt || report.timestamp || new Date().toISOString()
+      };
+    });
+  };
+
   // Fetch reports from API
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const response = await axios.get('/api/threatReports');
-        // threatReports endpoint returns array directly, not wrapped in success object
-        const reportsData = Array.isArray(response.data) ? response.data : [];
-        setReports(reportsData);
-        setFilteredReports(reportsData);
+        const response = await axios.get('/api/community-reports');
+        const rawReports = response.data && Array.isArray(response.data.reports) ? response.data.reports : (Array.isArray(response.data) ? response.data : []);
+        const normalized = normalizeReportsData(rawReports);
+        setReports(normalized);
+        setFilteredReports(normalized);
       } catch (error) {
         console.error('Error fetching reports:', error);
         setError(error.message);
@@ -123,8 +168,9 @@ const CommunityReports = () => {
           }
         ];
 
-        setReports(sampleReports);
-        setFilteredReports(sampleReports);
+        const normalizedSample = normalizeReportsData(sampleReports);
+        setReports(normalizedSample);
+        setFilteredReports(normalizedSample);
       } finally {
         setLoading(false);
       }
@@ -221,8 +267,12 @@ const CommunityReports = () => {
   };
 
   const getMediaUrl = (filename) => {
+    if (!filename) return '';
+    if (filename.startsWith('http://') || filename.startsWith('https://')) {
+      return filename;
+    }
     const safeFile = encodeURIComponent(filename || '');
-    return `http://localhost:8000/uploads/community-reports/${safeFile}`;
+    return `${API_CONFIG.NODE_API}/uploads/community-reports/${safeFile}`;
   };
 
   const openMediaModal = (type, src) => {
@@ -270,11 +320,13 @@ const CommunityReports = () => {
     // Add it to the local state immediately for instant UI update
     console.log('📝 Adding new report to local state:', newReport);
     
+    const normalized = normalizeReportsData([newReport])[0];
+    
     // Ensure the report has the right date format
     const reportWithDate = {
-      ...newReport,
-      timestamp: newReport.createdAt || newReport.timestamp,
-      createdAt: newReport.createdAt || newReport.timestamp
+      ...normalized,
+      timestamp: normalized.createdAt || normalized.timestamp,
+      createdAt: normalized.createdAt || normalized.timestamp
     };
     
     setReports(prev => [reportWithDate, ...prev]);
@@ -285,7 +337,7 @@ const CommunityReports = () => {
 
   const handleStatusChange = async (reportId, newStatus) => {
     try {
-      await axios.patch(`/api/threatReports/${reportId}`, { 
+      await axios.put(`/api/community-reports/${reportId}/status`, { 
         status: newStatus
       });
       
@@ -352,6 +404,33 @@ const CommunityReports = () => {
     }
   };
 
+  const handleBroadcast = async () => {
+    if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
+      alert('Please enter both a title and message for the broadcast.');
+      return;
+    }
+
+    try {
+      setBroadcasting(true);
+      const response = await axios.post('/api/community-reports/broadcast', {
+        title: broadcastTitle.trim(),
+        message: broadcastMessage.trim(),
+        urgentAlert: true
+      });
+
+      alert(
+        `Broadcast sent to ${response.data?.audience?.usersNotified || 0} users` +
+        (response.data?.audience?.smsRecipients ? ` and ${response.data.audience.smsRecipients} SMS recipients.` : '.')
+      );
+      setBroadcastMessage('');
+    } catch (error) {
+      console.error('Broadcast error:', error);
+      alert(error.response?.data?.message || 'Failed to send broadcast.');
+    } finally {
+      setBroadcasting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div 
@@ -410,12 +489,52 @@ const CommunityReports = () => {
           </div>
           <button
             onClick={() => setShowReportForm(true)}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg transition-all flex items-center space-x-2 font-medium hover:scale-105"
+            className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-lg transition-all flex items-center space-x-2 font-extrabold hover:scale-105 border border-slate-800 shadow-md"
           >
             <Plus className="w-5 h-5" />
             <span>New Report</span>
           </button>
         </div>
+
+        {isOperator && (
+          <div className="mb-4 rounded-xl border p-4" style={{ backgroundColor: 'var(--input-bg)', borderColor: 'var(--border-color)' }}>
+            <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
+              <div>
+                <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Operator Broadcast</h3>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Notify all active users with an in-app and SMS alert.</p>
+              </div>
+              <Bell className="w-5 h-5 text-cyan-400" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <input
+                type="text"
+                value={broadcastTitle}
+                onChange={(e) => setBroadcastTitle(e.target.value)}
+                className="px-3 py-2 rounded-lg border text-sm transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 md:col-span-1"
+                style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                placeholder="Broadcast title"
+              />
+              <textarea
+                value={broadcastMessage}
+                onChange={(e) => setBroadcastMessage(e.target.value)}
+                rows={3}
+                className="px-3 py-2 rounded-lg border text-sm transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 md:col-span-2 resize-none"
+                style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                placeholder="Write the message everyone should receive"
+              />
+            </div>
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={handleBroadcast}
+                disabled={broadcasting}
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <Send className="w-4 h-4" />
+                <span>{broadcasting ? 'Sending...' : 'Send Broadcast'}</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Search and Filters */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -590,7 +709,7 @@ const CommunityReports = () => {
             </p>
             <button
               onClick={() => setShowReportForm(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-all hover:scale-105"
+              className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-lg transition-all hover:scale-105 border border-slate-800 shadow-md font-extrabold"
             >
               Create First Report
             </button>
@@ -677,12 +796,12 @@ const CommunityReports = () => {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     // You can add a lightbox/modal here to view full image
-                                    window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/uploads/community-reports/${media.filename}`, '_blank');
+                                    window.open(getMediaUrl(media.filename), '_blank');
                                   }}
                                 >
                                   {media.mimetype.startsWith('image/') ? (
                                     <img 
-                                      src={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/uploads/community-reports/${media.filename}`}
+                                      src={getMediaUrl(media.filename)}
                                       alt={media.originalName}
                                       className="w-full h-full object-cover"
                                       onError={(e) => {
@@ -1168,7 +1287,7 @@ const CommunityReports = () => {
               <div className="flex space-x-3 mt-6 pt-6 border-t border-gray-600">
                 <button
                   onClick={() => sendAdditionalSMS(selectedReport._id || selectedReport.reportId)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors flex items-center space-x-2"
+                  className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2 rounded-lg transition-colors flex items-center space-x-2 font-extrabold border border-slate-800 shadow"
                 >
                   <Send className="w-5 h-5" />
                   <span>Send Additional SMS</span>

@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Mic, MicOff, Volume2, Settings } from 'lucide-react';
 import { useAuth } from '../store/hooks';
 import { sendChatMessage } from '../services/chatService';
@@ -150,66 +150,68 @@ const ChatbotWidget = ({ onClose }) => {
       }
 
       // If user asks for a prediction, call the prediction API
-      // Example: if the message contains 'predict' or 'alert', use static demo values
-      // Build prediction input; attempt to get the user's current coordinates
-      let predLat = 19.0760;
-      let predLon = 72.8777;
-      if (navigator.geolocation) {
-        try {
-          const pos = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-          });
-          predLat = pos.coords.latitude;
-          predLon = pos.coords.longitude;
-        } catch (e) {
-          // If geolocation fails or times out, fall back to defaults
+      if (lower.includes('predict') || lower.includes('alert') || lower.includes('anomaly')) {
+        // Build prediction input; attempt to get the user's current coordinates
+        let predLat = 19.0760;
+        let predLon = 72.8777;
+        if (navigator.geolocation) {
+          try {
+            const pos = await new Promise((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+            });
+            predLat = pos.coords.latitude;
+            predLon = pos.coords.longitude;
+          } catch (e) {
+            // If geolocation fails or times out, fall back to defaults
+          }
         }
-      }
 
-      const predictionInput = {
-        // include lat/lon so backend pydantic schema accepts the request
-        latitude: predLat,
-        longitude: predLon,
-        water_level_m: 1.5,
-        wind_speed_m_s: 5.0,
-        air_pressure_hpa: 1012,
-        chlorophyll_mg_m3: 0.8,
-        rainfall: 0.0
-      };
-      try {
-        const result = await getAlertPrediction(predictionInput);
-        
-        // Build a structured message payload for the UI (same as fetchAlertPrediction)
-        const payload = {
-          rain_predicted: result.rain_predicted ?? null,
-          rain_probability: result.rain_probability ?? null,
-          temperature_predicted: result.temperature_predicted ?? null,
-          humidity_predicted: result.humidity_predicted ?? null,
-          water_level_predicted: result.water_level_predicted ?? null,
-          alerts: Array.isArray(result.alerts) ? result.alerts : [],
-          features_used: result.features_used || null,
-          _source: result._source || 'unknown'
+        const predictionInput = {
+          // include lat/lon so backend pydantic schema accepts the request
+          latitude: predLat,
+          longitude: predLon,
+          water_level_m: 1.5,
+          wind_speed_m_s: 5.0,
+          air_pressure_hpa: 1012,
+          chlorophyll_mg_m3: 0.8,
+          rainfall: 0.0
         };
+        try {
+          const result = await getAlertPrediction(predictionInput);
+          
+          // Build a structured message payload for the UI (same as fetchAlertPrediction)
+          const payload = {
+            rain_predicted: result.rain_predicted ?? null,
+            rain_probability: result.rain_probability ?? null,
+            temperature_predicted: result.temperature_predicted ?? null,
+            humidity_predicted: result.humidity_predicted ?? null,
+            water_level_predicted: result.water_level_predicted ?? null,
+            alerts: Array.isArray(result.alerts) ? result.alerts : [],
+            features_used: result.features_used || null,
+            _source: result._source || 'unknown'
+          };
 
-        setMessages(prev => [...prev, {
-          id: Date.now() + 2,
-          text: '', // text will be rendered from payload
-          isBot: true,
-          timestamp: new Date(),
-          coastalScore: result.anomaly === 1 ? 100 : 80,
-          type: 'prediction',
-          payload
-        }]);
-      } catch (err) {
-        setMessages(prev => [...prev, {
-          id: Date.now() + 2,
-          text: `Prediction error: ${err.message}`,
-          isBot: true,
-          timestamp: new Date(),
-          coastalScore: 0
-        }]);
+          setMessages(prev => [...prev, {
+            id: Date.now() + 2,
+            text: '', // text will be rendered from payload
+            isBot: true,
+            timestamp: new Date(),
+            coastalScore: result.anomaly === 1 ? 100 : 80,
+            type: 'prediction',
+            payload
+          }]);
+        } catch (err) {
+          setMessages(prev => [...prev, {
+            id: Date.now() + 2,
+            text: `Prediction error: ${err.message}`,
+            isBot: true,
+            timestamp: new Date(),
+            coastalScore: 0
+          }]);
+        }
+        setIsTyping(false);
+        return;
       }
-      return;
 
       // Otherwise, fallback to normal chat
       const result = await sendChatMessage({ text: userMessage.text, mode: responseMode, context: { user: user?.name || 'Guest' } });
@@ -448,7 +450,7 @@ Ask: "Show mangrove health this month"`
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 h-full flex flex-col">
       {/* Header */}
-      <div className="p-4 text-white bg-gradient-to-r from-blue-600 to-blue-700">
+      <div className="p-4 text-white bg-slate-900">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg">
@@ -676,7 +678,7 @@ Ask: "Show mangrove health this month"`
           <button
             onClick={handleSendMessage}
             disabled={!inputText.trim() || isTyping}
-            className="p-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg transition-colors"
+            className="p-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-350 text-white rounded-lg font-bold transition-colors"
           >
             <Send className="w-4 h-4" />
           </button>
@@ -685,18 +687,18 @@ Ask: "Show mangrove health this month"`
         {/* Quick actions */}
         <div className="flex flex-wrap gap-2 mt-3">
           {[
-            "🌊 Current coastal conditions",
-            "🌀 Storm surge analysis", 
-            "📊 Littoral transport data",
-            "⚠️ Threat assessment",
-            "🔍 Erosion metrics"
+            { label: "🌊 Current coastal conditions", value: "Current coastal conditions" },
+            { label: "🌀 Storm surge analysis", value: "Storm surge analysis" },
+            { label: "📊 Littoral transport data", value: "Littoral transport data" },
+            { label: "⚠️ Threat assessment", value: "Threat assessment" },
+            { label: "🔍 Erosion metrics", value: "Erosion metrics" }
           ].map((action, index) => (
             <button
               key={index}
-              onClick={() => setInputText(action.replace(/[🌊🌀📊⚠️🔍] /, ''))}
-              className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-100 transition-colors"
+              onClick={() => setInputText(action.value)}
+              className="text-xs bg-slate-900 text-white font-bold px-3 py-1 rounded-full hover:bg-slate-800 transition-all"
             >
-              {action}
+              {action.label}
             </button>
           ))}
 
@@ -769,7 +771,7 @@ Ask: "Show mangrove health this month"`
                 setIsTyping(false);
               }
             }}
-            className="text-xs bg-green-50 text-green-700 px-3 py-1 rounded-full hover:bg-green-100 transition-colors"
+            className="text-xs bg-slate-900 text-white font-bold px-3 py-1 rounded-full hover:bg-slate-800 transition-all"
           >
             🔄 Live data
           </button>

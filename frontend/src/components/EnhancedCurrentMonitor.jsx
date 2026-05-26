@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useCurrentData, useConnectionStatus, useUI, useNoaaData } from '../store/hooks';
 import { fetchCurrentsData, fetchThreatAssessment, clearStationData } from '../store/slices/noaaSlice';
+import OceanSimulation from './Visuals/OceanSimulation';
 
 const EnhancedCurrentMonitor = ({ className = '' }) => {
   const dispatch = useDispatch();
@@ -65,7 +66,7 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
     // Attempt to use browser geolocation (user permission required)
     if (navigator && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
+         (pos) => {
           const { latitude, longitude } = pos.coords;
           console.log('✅ Geolocation obtained:', latitude, longitude);
           fetchWithCoords(latitude, longitude);
@@ -510,9 +511,10 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
 
           {/* Current Data Display */}
           {hasData && latest && (
-            <div className="space-y-4">
-              {/* Main Current Reading */}
-              <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              <div className="lg:col-span-7 space-y-4">
+                {/* Main Current Reading */}
+                <div className="grid md:grid-cols-3 gap-4">
                 <div className="bg-slate-700/30 p-4 rounded-lg text-center">
                   <div className="text-2xl font-bold text-white mb-1">
                     {formatSpeed(latest.speed_knots)}
@@ -682,6 +684,10 @@ const EnhancedCurrentMonitor = ({ className = '' }) => {
                   </div>
                 </div>
               )}
+              </div>
+              <div className="lg:col-span-5 flex flex-col h-[400px] lg:h-auto min-h-[350px]">
+                <OceanSimulation />
+              </div>
             </div>
           )}
 

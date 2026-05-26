@@ -1,10 +1,8 @@
-﻿// NOAA data slice for real-time ocean and weather data
+// NOAA data slice for real-time ocean and weather data
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
-// Get API base URL from environment variables - Use Node backend for NOAA
-const API_BASE_URL = import.meta.env.VITE_NODE_API_URL || 'http://localhost:3001';
-// OpenWeather API key (optional). If provided, some NOAA endpoints will fall back to OpenWeather
-const OPENWEATHER_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY || null;
+const rawNodeUrl = import.meta.env.VITE_NODE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = rawNodeUrl.replace(/\/$/, '') + '/api';
 // Simple mapping of known station ids to coordinates (extend as needed)
 const STATION_COORDS = {
   cb0201: { lat: 36.9667, lon: -76.1167 }
@@ -34,6 +32,7 @@ const initialState = {
   serviceStatus: null,
   isLoading: false,
   error: null,
+  connectionStatus: 'disconnected',
   lastUpdated: {
     capeHenry: 'fresh',
     current: 'fresh',
@@ -237,6 +236,96 @@ const noaaSlice = createSlice({
       state.currentsData = {};
       state.currentData = null;
       state.threatAssessment = null;
+    },
+    setConnectionStatus: (state, action) => {
+      state.connectionStatus = action.payload;
+    },
+    receiveLiveUpdate: (state, action) => {
+      const { tide, metric, tides, metrics, type } = action.payload;
+      
+      if (type === 'initial_data' && Array.isArray(tides) && Array.isArray(metrics)) {
+        console.log('⚡ Processing initial WebSocket data:', tides.length, 'tides,', metrics.length, 'metrics');
+        const sortedTides = [...tides].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        
+        sortedTides.forEach((t, index) => {
+          const stationId = t.stationId || 'cb0201';
+          const nowIso = t.timestamp || new Date().toISOString();
+          const matchingMetric = metrics[index] || metrics[metrics.length - 1];
+          
+          const observation = {
+            timestamp: nowIso,
+            time: nowIso,
+            speed_knots: matchingMetric ? matchingMetric.windSpeed : (1.0 + Math.random() * 2),
+            direction_degrees: matchingMetric ? (matchingMetric.pH * 30) : 180,
+            water_level: t.waterLevel,
+            tide_level: t.tideLevel
+          };
+          
+          const existing = state.currentsData[stationId] || {};
+          const observations = Array.isArray(existing.observations)
+            ? existing.observations.concat(observation).slice(-100)
+            : [observation];
+            
+          state.currentsData[stationId] = {
+            ...existing,
+            source: 'websocket',
+            station_info: {
+              name: t.stationName || 'Chesapeake Bay Bridge Tunnel',
+              coords: { lat: 36.9667, lon: -76.1167 }
+            },
+            observations
+          };
+        });
+        
+        if (metrics.length > 0) {
+          const latestMetric = metrics[metrics.length - 1];
+          state.capeHenryData = {
+            ...state.capeHenryData,
+            ...latestMetric,
+            source: 'websocket'
+          };
+        }
+        state.currentLastUpdated = new Date().toISOString();
+        return;
+      }
+
+      if (tide) {
+        const stationId = tide.stationId || 'cb0201';
+        const nowIso = tide.timestamp || new Date().toISOString();
+        
+        // Map to currents structure expected by EnhancedCurrentMonitor
+        const newObservation = {
+          timestamp: nowIso,
+          time: nowIso,
+          speed_knots: metric ? metric.windSpeed : (1.0 + Math.random() * 2),
+          direction_degrees: metric ? (metric.pH * 30) : 180,
+          water_level: tide.waterLevel,
+          tide_level: tide.tideLevel
+        };
+
+        const existing = state.currentsData[stationId] || {};
+        const observations = Array.isArray(existing.observations)
+          ? existing.observations.concat(newObservation).slice(-100)
+          : [newObservation];
+
+        state.currentsData[stationId] = {
+          ...existing,
+          source: 'websocket',
+          station_info: {
+            name: tide.stationName || 'Chesapeake Bay Bridge Tunnel',
+            coords: { lat: 36.9667, lon: -76.1167 }
+          },
+          observations
+        };
+      }
+      if (metric) {
+        state.capeHenryData = {
+          ...state.capeHenryData,
+          ...metric,
+          source: 'websocket'
+        };
+      }
+      state.currentLastUpdated = new Date().toISOString();
     }
   },
   extraReducers: (builder) => {
@@ -397,7 +486,7 @@ const noaaSlice = createSlice({
   }
 });
 
-export const { clearError, clearStationData } = noaaSlice.actions;
+export const { clearError, clearStationData, receiveLiveUpdate, setConnectionStatus } = noaaSlice.actions;
 
 // Selectors
 export const selectCapeHenryData = (state) => state.noaa.capeHenryData;

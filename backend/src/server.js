@@ -1,3 +1,21 @@
+require('dns').setDefaultResultOrder('ipv4first');
+// Load mongoose JSON fallback only when explicitly requested or when a MongoDB URI is present.
+// This avoids initializing the Mongo fallback when using Postgres/Neon as the primary DB.
+if (process.env.MONGODB_URI && process.env.MONGODB_URI.length > 0) {
+  try {
+    require('./lib/mongooseFallback.js');
+  } catch (e) {
+    console.warn('Failed to initialize mongoose fallback:', e.message);
+  }
+} else if (process.env.ENABLE_MONGOOSE_FALLBACK === 'true') {
+  try {
+    require('./lib/mongooseFallback.js');
+  } catch (e) {
+    console.warn('Failed to initialize mongoose fallback:', e.message);
+  }
+} else {
+  console.log('ℹ️ Skipping mongoose fallback (no MONGODB_URI and ENABLE_MONGOOSE_FALLBACK not set).');
+}
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -19,6 +37,7 @@ if (process.env.NODE_ENV !== 'test' && !process.env.JWT_SECRET) {
 // Log startup environment info
 console.log('🔧 Environment:', process.env.NODE_ENV || 'development');
 console.log('📍 Current directory:', __dirname);
+const resolvedWeatherKey = process.env.WEATHER_API_KEY;
 console.log('🔑 Env vars loaded:', {
   NODE_ENV: process.env.NODE_ENV || 'not set',
   PORT: process.env.PORT || 'not set',
@@ -27,7 +46,7 @@ console.log('🔑 Env vars loaded:', {
   CORS_ORIGINS: process.env.CORS_ORIGINS || 'using defaults'
 });
 
-const connectDB = require('./lib/db.js');
+const { connectDB } = require('./lib/db.js');
 const app = express();
 
 // Trust proxy settings for production deployment (Render, Heroku, etc.)
@@ -39,8 +58,7 @@ if (process.env.NODE_ENV === 'production') {
 // avoid colliding with the Python/uvicorn service which uses port 8000.
 const PORT = process.env.PORT || 3001;
 
-// Connect to Database
-connectDB();
+// Database connection is managed inside startServer()
 
 // Security Middleware
 app.use(helmet());
@@ -123,12 +141,13 @@ app.use('/api/enhanced-coastal', require('./routes/enhancedCoastal'));
 app.use('/api/community-reports', require('./routes/communityReports'));
 app.use('/api/threatReports', require('./routes/threatReports'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/media', require('./routes/media'));
 // Server-side proxy for OpenWeather to avoid exposing API key to clients
 app.use('/api/openweather', require('./routes/openWeatherProxy'));
 
 // Proxy AI model requests to local Python service (port 8000)
 const axios = require('axios');
-const AI_SERVICE_URL = process.env.AI_API_URL || 'http://localhost:8000';
+const AI_SERVICE_URL = process.env.AI_API_URL || 'http://127.0.0.1:8000';
 
 // Proxy all /api/predict_* and /api/forecast endpoints to AI service
 app.use('/api/predict_alert', async (req, res) => {
@@ -202,7 +221,7 @@ app.use('*', (req, res) => {
 app.get('/api/test/weather', async (req, res) => {
   try {
     const OpenWeatherMapService = require('./services/openWeatherMapService');
-    const weatherService = new OpenWeatherMapService(process.env.OPENWEATHER_API_KEY);
+    const weatherService = new OpenWeatherMapService(process.env.WEATHER_API_KEY);
     
     const testResult = await weatherService.testAPIKey();
     
@@ -255,6 +274,8 @@ process.on('SIGINT', () => {
 });
 
 // Start server
+const websocketService = require('./services/websocketService');
+
 const startServer = async () => {
   try {
     // Connect to database (non-blocking)
@@ -264,13 +285,17 @@ const startServer = async () => {
     });
 
     // Start HTTP server
-    const server = app.listen(PORT, () => {
+    // Bind to the specified host, or 0.0.0.0 in production (for Render/cloud deployments)
+    // to receive external traffic, and default to 127.0.0.1 in local development to
+    // avoid IPv6 all-address conflicts.
+    const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
+    const server = app.listen(PORT, HOST, () => {
       console.log(`
 🌊 CTAS Backend Server Starting...
 ==========================================
-📍 Server: http://localhost:${PORT}
+📍 Server: http://${HOST}:${PORT}
 🌐 Environment: ${process.env.NODE_ENV || 'development'}
-🔑 Weather API: ${process.env.OPENWEATHER_API_KEY ? 'Configured' : 'Missing'}
+🔑 Weather API: ${resolvedWeatherKey ? 'Configured' : 'Missing'}
 🔑 JWT Secret: ${process.env.JWT_SECRET ? 'Configured' : 'Missing'}
 🗄️  MongoDB: ${process.env.MONGODB_URI ? 'URI Configured' : 'URI Missing'}
 ⏰ Started: ${new Date().toISOString()}
@@ -278,9 +303,13 @@ const startServer = async () => {
       `);
     });
 
+    // Initialize WebSocket server
+    websocketService.initialize(server);
+
     // Graceful shutdown
     const gracefulShutdown = () => {
       console.log('\n🔄 Shutting down gracefully...');
+      websocketService.destroy();
       server.close(() => {
         console.log('🔌 HTTP server closed.');
         process.exit(0);
