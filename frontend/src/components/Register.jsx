@@ -204,10 +204,9 @@ const Register = ({ onBack }) => {
                   onChange={handleInputChange}
                   className="w-full px-5 py-3.5 bg-slate-800/80 border border-slate-600/50 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400/50 transition-all duration-200 focus:bg-slate-700/80 appearance-none cursor-pointer"
                 >
-                  <option value="viewer" className="bg-slate-800 text-white">🔍 Viewer - View alerts and data</option>
-                  <option value="community_leader" className="bg-slate-800 text-white">👥 Community Leader - Generate reports</option>
-                  <option value="operator" className="bg-slate-800 text-white">⚡ Operator - Create and manage alerts</option>
-                  <option value="admin" className="bg-slate-800 text-white">🛡️ Administrator - Full access</option>
+                  <option value="viewer" className="bg-slate-800 text-white">🔍 Viewer - View data and submit reports</option>
+                  <option value="community_leader" className="bg-slate-800 text-white">👥 Community Leader - Review and manage reports</option>
+                  <option value="operator" className="bg-slate-800 text-white">⚡ Operator - Send alerts and notifications</option>
                 </select>
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
                   <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,7 +240,7 @@ const Register = ({ onBack }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl hover:shadow-emerald-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-3 text-base mt-6 shadow-lg"
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 px-6 rounded-2xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl hover:shadow-slate-950/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-3 text-base mt-6 shadow-lg"
             >
               {loading ? (
                 <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

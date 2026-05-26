@@ -2,7 +2,7 @@ const axios = require('axios');
 
 class WeatherService {
   constructor() {
-    this.apiKey = process.env.OPENWEATHER_API_KEY;
+    this.apiKey = process.env.WEATHER_API_KEY;
     this.baseUrl = 'https://api.openweathermap.org/data/2.5';
   }
 

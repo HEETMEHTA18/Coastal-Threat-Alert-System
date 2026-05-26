@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const { prisma } = require('../lib/db');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
@@ -16,6 +16,48 @@ const generateToken = (userId) => {
     getJwtSecret(),
     { expiresIn: '7d' }
   );
+};
+
+// Helper to get role permissions
+const getRolePermissions = (role) => {
+  switch (role) {
+    case 'admin':
+      return {
+        canCreateAlerts: true,
+        canAcknowledgeAlerts: true,
+        canGenerateReports: true,
+        canManageUsers: true,
+        canViewDashboard: true,
+        canAccessAPI: true
+      };
+    case 'operator':
+      return {
+        canCreateAlerts: true,
+        canAcknowledgeAlerts: true,
+        canGenerateReports: true,
+        canManageUsers: false,
+        canViewDashboard: true,
+        canAccessAPI: true
+      };
+    case 'community_leader':
+      return {
+        canCreateAlerts: false,
+        canAcknowledgeAlerts: false,
+        canGenerateReports: true,
+        canManageUsers: false,
+        canViewDashboard: true,
+        canAccessAPI: false
+      };
+    default: // viewer
+      return {
+        canCreateAlerts: false,
+        canAcknowledgeAlerts: false,
+        canGenerateReports: true,
+        canManageUsers: false,
+        canViewDashboard: true,
+        canAccessAPI: false
+      };
+  }
 };
 
 // Register User API
@@ -41,7 +83,10 @@ const register = async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    });
+    
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -50,41 +95,35 @@ const register = async (req, res) => {
     }
 
     // Prevent privilege escalation on public signup.
-    // Elevated roles must be assigned through a protected admin flow.
-    const publicRoles = ['viewer', 'community_leader'];
+    const publicRoles = ['viewer', 'community_leader', 'operator'];
     const userRole = role && publicRoles.includes(role) ? role : 'viewer';
+    const permissions = getRolePermissions(userRole);
 
-    // Create user data object
-    const userData = {
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      password,
-      role: userRole
-    };
+    // Hash password manually
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Add profile information if provided
-    if (organization || department || phone || region) {
-      userData.profile = {};
-      if (organization) userData.profile.organization = organization;
-      if (department) userData.profile.department = department;
-      if (phone) userData.profile.phone = phone;
-      if (region) userData.profile.location = { region };
-    }
-
-    // Create new user
-    const user = new User(userData);
-    
-    // Set role-based permissions
-    user.setRolePermissions();
-    
-    // Save user to database (password will be hashed automatically)
-    await user.save();
+    // Create user in PostgreSQL
+    const userId = require('crypto').randomUUID();
+    const user = await prisma.user.create({
+      data: {
+        id: userId,
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        password: hashedPassword,
+        role: userRole,
+        organization: organization || null,
+        department: department || null,
+        phone: phone || null,
+        region: region || null,
+        ...permissions,
+        loginCount: 1,
+        lastLogin: new Date()
+      }
+    });
 
     // Generate JWT token
-    const token = generateToken(user._id);
-
-    // Update login info
-    await user.updateLastLogin();
+    const token = generateToken(user.id);
 
     // Send response (exclude password)
     res.status(201).json({
@@ -92,13 +131,25 @@ const register = async (req, res) => {
       message: 'User registered successfully',
       data: {
         user: {
-          id: user._id,
+          id: user.id,
           name: user.name,
           email: user.email,
           role: user.role,
           status: user.status,
-          permissions: user.permissions,
-          profile: user.profile,
+          permissions: {
+            canCreateAlerts: user.canCreateAlerts,
+            canAcknowledgeAlerts: user.canAcknowledgeAlerts,
+            canGenerateReports: user.canGenerateReports,
+            canManageUsers: user.canManageUsers,
+            canViewDashboard: user.canViewDashboard,
+            canAccessAPI: user.canAccessAPI
+          },
+          profile: {
+            organization: user.organization,
+            department: user.department,
+            phone: user.phone,
+            location: { region: user.region }
+          },
           createdAt: user.createdAt
         },
         token
@@ -107,35 +158,10 @@ const register = async (req, res) => {
 
   } catch (error) {
     console.error('Registration error:', error);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      errors: error.errors,
-      stack: error.stack
-    });
-    
-    // Handle specific MongoDB errors
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email already exists'
-      });
-    }
-
-    // Handle validation errors
-    if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: validationErrors
-      });
-    }
-
     res.status(500).json({
       success: false,
       message: 'Server error during registration',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: error.message
     });
   }
 };
@@ -153,17 +179,11 @@ const login = async (req, res) => {
       });
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide a valid email address'
-      });
-    }
+    // Find user by email in PostgreSQL
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    });
 
-    // Find user by email
-    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -171,10 +191,8 @@ const login = async (req, res) => {
       });
     }
 
-
-
     // Check password
-    const isPasswordValid = await user.comparePassword(password);
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
@@ -183,26 +201,44 @@ const login = async (req, res) => {
     }
 
     // Generate JWT token
-    const token = generateToken(user._id);
+    const token = generateToken(user.id);
 
-    // Update login info
-    await user.updateLastLogin();
+    // Update last login details
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastLogin: new Date(),
+        loginCount: (user.loginCount || 0) + 1
+      }
+    });
 
-    // Send response (exclude password)
+    // Send response
     res.status(200).json({
       success: true,
       message: 'Login successful',
       data: {
         user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          status: user.status,
-          permissions: user.permissions,
-          profile: user.profile,
-          lastLogin: user.lastLogin,
-          loginCount: user.loginCount
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          status: updatedUser.status,
+          permissions: {
+            canCreateAlerts: updatedUser.canCreateAlerts,
+            canAcknowledgeAlerts: updatedUser.canAcknowledgeAlerts,
+            canGenerateReports: updatedUser.canGenerateReports,
+            canManageUsers: updatedUser.canManageUsers,
+            canViewDashboard: updatedUser.canViewDashboard,
+            canAccessAPI: updatedUser.canAccessAPI
+          },
+          profile: {
+            organization: updatedUser.organization,
+            department: updatedUser.department,
+            phone: updatedUser.phone,
+            location: { region: updatedUser.region }
+          },
+          lastLogin: updatedUser.lastLogin,
+          loginCount: updatedUser.loginCount
         },
         token
       }
@@ -213,7 +249,7 @@ const login = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error during login',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: error.message
     });
   }
 };
@@ -221,19 +257,16 @@ const login = async (req, res) => {
 // Logout User API
 const logout = async (req, res) => {
   try {
-    // For JWT-based auth, logout is handled client-side by removing the token
-    // But we can still provide a logout endpoint for consistency
     res.status(200).json({
       success: true,
       message: 'Logout successful'
     });
-
   } catch (error) {
     console.error('Logout error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error during logout',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: error.message
     });
   }
 };

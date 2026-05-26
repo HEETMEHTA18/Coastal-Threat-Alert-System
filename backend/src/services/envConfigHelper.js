@@ -19,21 +19,20 @@ class EnvConfigHelper {
         envContent = fs.readFileSync(this.envPath, 'utf8');
       }
       
-      // Update or add the OpenWeatherMap API key
+      // Update the canonical weather API key name.
       const lines = envContent.split('\n');
-      let keyUpdated = false;
+      let weatherKeyUpdated = false;
       
       for (let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith('OPENWEATHER_API_KEY=')) {
-          lines[i] = `OPENWEATHER_API_KEY=${apiKey}`;
-          keyUpdated = true;
-          break;
+        if (lines[i].startsWith('WEATHER_API_KEY=')) {
+          lines[i] = `WEATHER_API_KEY=${apiKey}`;
+          weatherKeyUpdated = true;
         }
       }
       
-      // If key wasn't found, add it
-      if (!keyUpdated) {
-        lines.push(`OPENWEATHER_API_KEY=${apiKey}`);
+      // If the key wasn't found, add it.
+      if (!weatherKeyUpdated) {
+        lines.push(`WEATHER_API_KEY=${apiKey}`);
       }
       
       // Write back to file
@@ -58,11 +57,10 @@ class EnvConfigHelper {
       }
       
       const envContent = fs.readFileSync(this.envPath, 'utf8');
-      const hasAPIKey = envContent.includes('OPENWEATHER_API_KEY=') && 
-                       !envContent.includes('OPENWEATHER_API_KEY=your_openweather_api_key_here');
+      const hasAPIKey = envContent.includes('WEATHER_API_KEY=') && !envContent.includes('WEATHER_API_KEY=your_weather_api_key_here');
       
       if (hasAPIKey) {
-        const match = envContent.match(/OPENWEATHER_API_KEY=([^\n\r]+)/);
+        const match = envContent.match(/WEATHER_API_KEY=([^\n\r]+)/);
         if (match && match[1].length > 10) {
           console.log('✅ Valid API key found in .env file');
           return match[1];
@@ -87,7 +85,7 @@ MONGODB_URI=mongodb://localhost:27017/coastal-threat-db
 REDIS_URL=redis://localhost:6379
 
 # API Keys
-OPENWEATHER_API_KEY=your_openweather_api_key_here
+WEATHER_API_KEY=your_weather_api_key_here
 NASA_API_KEY=your_nasa_api_key_here
 SENTINEL_API_KEY=your_sentinel_api_key_here
 

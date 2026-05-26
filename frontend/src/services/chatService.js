@@ -1,16 +1,14 @@
-import api from './apiService';
+import nodeAxios from './nodeAxiosInstance';
 
-// Simple chat API wrapper. For streaming, migrate to EventSource/ReadableStream later.
+// Simple chat API wrapper using Node.js backend.
 export async function sendChatMessage({ text, mode = 'standard', context = {} }) {
   try {
-    const result = await api.fetchAPI('/ai/chat', {
-      method: 'POST',
-      body: JSON.stringify({ message: text, mode, context })
-    });
-    return result;
+    const response = await nodeAxios.post('/ai/chat', { message: text, mode, context });
+    return response.data;
   } catch (error) {
     return { status: 'error', message: error.message };
   }
 }
+
 
 

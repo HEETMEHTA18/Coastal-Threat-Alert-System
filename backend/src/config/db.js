@@ -1,18 +1,7 @@
-const mongoose = require('mongoose');
-require('dotenv').config();
+// Legacy MongoDB connector retained for compatibility only.
+// The app now uses PostgreSQL/Neon via backend/src/lib/db.js.
+// This module proxies to the Postgres connector so older imports don't break.
 
-const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/coastal-threat-db', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    console.error('Database connection error:', error);
-    process.exit(1);
-  }
-};
+const { connectDB } = require('../lib/db');
 
 module.exports = connectDB;

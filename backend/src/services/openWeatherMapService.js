@@ -3,16 +3,16 @@
 
 class OpenWeatherMapService {
   constructor(apiKey) {
-    this.apiKey = apiKey;
+    this.apiKey = apiKey || process.env.WEATHER_API_KEY;
     this.baseUrl = 'http://api.openweathermap.org/data/2.5';
     this.oneCallUrl = 'https://api.openweathermap.org/data/3.0/onecall';
     this.geoUrl = 'http://api.openweathermap.org/geo/1.0';
     
-    if (!apiKey) {
+    if (!this.apiKey) {
       throw new Error('OpenWeatherMap API key is required');
     }
     
-    console.log(`🌤️ OpenWeatherMap Service initialized with API key: ${apiKey.substring(0, 8)}...${apiKey.substring(apiKey.length - 4)}`);
+    console.log(`🌤️ OpenWeatherMap Service initialized with API key: ${this.apiKey.substring(0, 8)}...${this.apiKey.substring(this.apiKey.length - 4)}`);
   }
 
   async getCurrentWeather(city = 'Mumbai') {

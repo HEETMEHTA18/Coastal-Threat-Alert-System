@@ -54,11 +54,10 @@ const CTASLogo = ({ variant = 'icon', size = 'md', inverted = true, className = 
       </div>
       <div className="leading-none">
         <div className={`font-extrabold tracking-tight ${cfg.text}`} style={{ color: 'white' }}>CTAS</div>
-        <div className="text-xs text-slate-200">Coastal Monitoring</div>
+        <div className="text-xs text-slate-200">Coastal Threat Alert System</div>
       </div>
     </div>
   );
 };
 
 export default CTASLogo;
-

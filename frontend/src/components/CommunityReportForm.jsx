@@ -37,7 +37,7 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
       evacuationNeeded: false,
       infrastructureDamage: false
     },
-  // media: [],
+    media: [],
     notifications: {
       smsRadius: 5, // km
       urgentAlert: false,
@@ -51,6 +51,68 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
   const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
   const [gettingLocation, setGettingLocation] = useState(false);
+
+  const fileInputRef = useRef(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size exceeds 5MB limit.');
+      return;
+    }
+
+    setUploadingImage(true);
+    const uploadFormData = new FormData();
+    uploadFormData.append('image', file);
+
+    try {
+      const nodeAxios = (await import('../services/nodeAxiosInstance')).default;
+      const response = await nodeAxios.post('/community-reports/upload', uploadFormData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      if (response.data && response.data.success) {
+        setFormData(prev => ({
+          ...prev,
+          media: [...(prev.media || []), response.data.url]
+        }));
+      }
+    } catch (err) {
+      console.error('Image upload failed:', err);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = (indexToRemove) => {
+    setFormData(prev => ({
+      ...prev,
+      media: (prev.media || []).filter((_, idx) => idx !== indexToRemove)
+    }));
+  };
+
+  const validateStep = (step) => {
+    const newErrors = {};
+    if (step === 1) {
+      if (!formData.title.trim()) newErrors.title = 'Title is required';
+      if (!formData.description.trim()) newErrors.description = 'Description is required';
+    } else if (step === 2) {
+      if (!formData.contactInfo.name.trim()) newErrors.contactName = 'Contact name is required';
+      if (!formData.contactInfo.phone.trim()) newErrors.contactPhone = 'Phone number is required';
+      if (!formData.location.trim()) newErrors.location = 'Location is required';
+      
+      const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+      if (formData.contactInfo.phone && !phoneRegex.test(formData.contactInfo.phone.replace(/\s/g, ''))) {
+        newErrors.contactPhone = 'Invalid phone number format';
+      }
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -198,9 +260,16 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
     setIsSubmitting(true);
     try {
 
-      // Prepare data for submission (no files)
-      const completeFormData = { ...formData };
-      delete completeFormData.media;
+      // Prepare data for submission
+      const completeFormData = {
+        ...formData,
+        coordinates: {
+          lat: formData.coordinates?.lat ?? 0,
+          lng: formData.coordinates?.lng ?? 0
+        },
+        source: 'community',
+        visibility: 'public'
+      };
       // Use Node backend axios client
   const nodeAxios = (await import('../services/nodeAxiosInstance')).default;
   // POST may trigger SMS sending and other async work on server; increase timeout for this request
@@ -219,11 +288,16 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
 
     } catch (error) {
       console.error('Submission error:', error);
-      let errorMessage = 'Failed to submit report. Please try again.';
+      const backendMessage = error.response?.data?.message || error.response?.data?.error;
+      let errorMessage = backendMessage || 'Failed to submit report. Please try again.';
 
       // Axios timeout manifests as code === 'ECONNABORTED'
       if (error.code === 'ECONNABORTED' || (error.message && error.message.includes('timeout'))) {
         errorMessage = 'Server is taking longer than expected to process the report. Submission may still have succeeded — check the Reports list in a moment.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Your session has expired. Please log in again before submitting the report.';
+      } else if (error.response?.status === 403) {
+        errorMessage = backendMessage || 'This report could not be submitted with the current account permissions.';
       } else if (error.message && (error.message.includes('Network Error') || error.message.includes('fetch'))) {
         errorMessage = 'Network error. Please check your connection and try again.';
       } else if (error.message && error.message.includes('validation')) {
@@ -517,6 +591,47 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
               )}
 
               {/* Media Upload */}
+              <div className="mt-6 border-t border-slate-700 pt-6">
+                <label className="block text-white font-medium mb-2">Attach Photos (Optional)</label>
+                <div className="flex flex-wrap gap-4 items-center">
+                  {formData.media && formData.media.map((url, idx) => (
+                    <div key={idx} className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-600 bg-slate-800">
+                      <img src={url} alt="Report attachment" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(idx)}
+                        className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  {uploadingImage ? (
+                    <div className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-600 flex flex-col items-center justify-center bg-slate-800/50">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                      <span className="text-xs text-slate-400 mt-2">Uploading...</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-600 hover:border-blue-500 hover:bg-slate-800/40 flex flex-col items-center justify-center text-slate-400 hover:text-white transition-all"
+                    >
+                      <Camera className="w-6 h-6 mb-1" />
+                      <span className="text-xs font-semibold">Add Photo</span>
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <p className="text-xs text-slate-500 mt-2">Supports JPG, PNG, GIF up to 5MB.</p>
+              </div>
 
             </div>
           )}
@@ -841,7 +956,11 @@ const CommunityReportForm = ({ onClose, onSubmit, initialData = null }) => {
                 <button
                   onClick={() => {
                     console.log('📝 Moving to next step:', currentStep + 1);
-                    setCurrentStep(prev => prev + 1);
+                    if (validateStep(currentStep)) {
+                      setCurrentStep(prev => prev + 1);
+                    } else {
+                      console.log('❌ Step validation failed');
+                    }
                   }}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
                 >

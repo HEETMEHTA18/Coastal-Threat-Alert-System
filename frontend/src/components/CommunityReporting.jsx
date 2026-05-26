@@ -207,7 +207,7 @@ const CommunityReporting = ({ user, onSubmitReport }) => {
           
           <button
             onClick={() => setShowReportForm(true)}
-            className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-2 rounded-lg font-medium hover:scale-105 transition-transform flex items-center space-x-2"
+            className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg font-extrabold shadow hover:scale-105 transition-all flex items-center space-x-2 border border-slate-800"
           >
             <Plus className="w-4 h-4" />
             <span>New Report</span>
@@ -218,8 +218,8 @@ const CommunityReporting = ({ user, onSubmitReport }) => {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setFilter('all')}
-            className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-              filter === 'all' ? 'bg-blue-500/30 text-blue-400' : 'bg-white/10 text-gray-400 hover:bg-white/20'
+            className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+              filter === 'all' ? 'bg-slate-900 text-white font-extrabold border border-slate-700 shadow-sm' : 'bg-slate-800/40 text-slate-400 hover:bg-slate-800'
             }`}
           >
             All Reports
@@ -228,8 +228,8 @@ const CommunityReporting = ({ user, onSubmitReport }) => {
             <button
               key={type.id}
               onClick={() => setFilter(type.id)}
-              className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                filter === type.id ? getTypeColor(type.id) : 'bg-white/10 text-gray-400 hover:bg-white/20'
+              className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                filter === type.id ? 'bg-slate-900 text-white font-extrabold border border-slate-700 shadow-sm' : 'bg-slate-800/40 text-slate-400 hover:bg-slate-800'
               }`}
             >
               {type.name}
@@ -348,7 +348,7 @@ const CommunityReporting = ({ user, onSubmitReport }) => {
                 <button
                   type="button"
                   onClick={() => handleMediaUpload('image')}
-                  className="flex items-center space-x-2 px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-colors"
+                  className="flex items-center space-x-2 px-3 py-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 rounded-lg transition-colors font-bold"
                 >
                   <Image className="w-4 h-4" />
                   <span>Photo</span>
@@ -356,7 +356,7 @@ const CommunityReporting = ({ user, onSubmitReport }) => {
                 <button
                   type="button"
                   onClick={() => handleMediaUpload('video')}
-                  className="flex items-center space-x-2 px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg transition-colors"
+                  className="flex items-center space-x-2 px-3 py-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 rounded-lg transition-colors font-bold"
                 >
                   <Video className="w-4 h-4" />
                   <span>Video</span>
@@ -372,10 +372,10 @@ const CommunityReporting = ({ user, onSubmitReport }) => {
                       }, 3000);
                     }
                   }}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors font-bold border ${
                     isRecording 
-                      ? 'bg-red-500/30 text-red-400 animate-pulse' 
-                      : 'bg-green-500/20 hover:bg-green-500/30 text-green-400'
+                      ? 'bg-red-950 border-red-700 text-red-400 animate-pulse' 
+                      : 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-300'
                   }`}
                 >
                   <Mic className="w-4 h-4" />
@@ -405,13 +405,13 @@ const CommunityReporting = ({ user, onSubmitReport }) => {
               <button
                 type="button"
                 onClick={() => setShowReportForm(false)}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors font-bold"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg font-medium hover:scale-105 transition-transform flex items-center space-x-2"
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-extrabold shadow hover:scale-105 transition-all flex items-center space-x-2 border border-slate-800"
               >
                 <Send className="w-4 h-4" />
                 <span>Submit Report</span>

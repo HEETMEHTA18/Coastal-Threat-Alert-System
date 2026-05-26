@@ -13,7 +13,7 @@ const loadThemeFromStorage = () => {
   }
   
   return {
-    mode: 'dark', // 'light', 'dark', 'auto'
+    mode: 'light', // 'light', 'dark', 'auto'
     accentColor: 'blue', // 'blue', 'cyan', 'green', 'orange', 'red'
     fontSize: 'medium', // 'small', 'medium', 'large'
     animations: true,

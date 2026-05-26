@@ -16,6 +16,8 @@ import {
   exportReport
 } from '../services/analyticsService';
 
+import Analytics3D from './Visuals/Analytics3D';
+
 // AI Insights Component
 const AIInsights = ({ insights, confidence }) => (
   <div className="bg-slate-800 rounded-lg p-6 border border-slate-600">
@@ -314,7 +316,7 @@ const AdvancedAnalytics = () => {
       <div className="space-y-6">
         {activeTab === 'overview' && (
           <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <div className="bg-slate-800 rounded-lg p-4 border border-slate-600">
                 <h4 className="text-white font-medium mb-3">Sea Level Trends</h4>
                 <SeaLevelChart data={data.seaLevel} />
@@ -324,6 +326,23 @@ const AdvancedAnalytics = () => {
                 <AlgalBloomChart data={data.algalBloom} />
               </div>
             </div>
+            
+            <div className="bg-slate-800 rounded-lg p-6 border border-slate-600 mb-6">
+              <h4 className="text-white font-semibold text-lg mb-3 flex items-center">
+                <span className="text-cyan-400 mr-2">📊</span>
+                3D Shoreline Threat Index & Risk Distribution
+              </h4>
+              <div className="h-[350px]">
+                <Analytics3D data={[
+                  { label: 'Water Pollution', value: 85, color: '#06b6d4' },
+                  { label: 'Illegal Dumping', value: 42, color: '#ef4444' },
+                  { label: 'Mangrove Damage', value: 65, color: '#10b981' },
+                  { label: 'Flood Risk', value: 92, color: '#f59e0b' },
+                  { label: 'Coastal Erosion', value: 58, color: '#3b82f6' }
+                ]} />
+              </div>
+            </div>
+
             <AIInsights insights={insights} confidence={confidence} />
           </>
         )}

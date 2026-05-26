@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Activity, Satellite, CloudRain, Waves, BarChart, 
   Users, MapPin, RefreshCw, Settings, LogOut, User as UserIcon, 
-  ChevronDown, Smartphone, Menu, X, MessageCircle 
+  ChevronDown, Smartphone, Menu, X, MessageCircle, Sparkles,
+  AlertTriangle, ShieldCheck, Radio, Gauge, Database, Compass
 } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import { useAuth, useUI, useDashboard, useConnectionStatus } from '../store/hooks';
@@ -14,35 +15,38 @@ import WeatherWidget from './WeatherWidget';
 import EnhancedSatelliteMap from './EnhancedSatelliteMap';
 import MapboxSatelliteMap from './MapboxSatelliteMap';
 import MapboxCoastalMonitor from './MapboxCoastalMonitor';
-import FallbackMap from './FallbackMap';
 import MapErrorBoundary from './MapErrorBoundary';
 import CommunityReports from './CommunityReports';
+import CommunityReportForm from './CommunityReportForm';
 import ChatbotWidget from './ChatbotWidget';
 import AnalyticsPage from './AnalyticsPage';
 import CurrentMonitorService from '../services/currentMonitorService';
 import SimpleSettingsModal from './SimpleSettingsModal';
 import UserProfileDisplay from './UserProfileDisplay';
 import LogoFallback from './LogoFallback';
+import AIQuestionnaire from './AIQuestionnaire';
+
 
 const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
   const dispatch = useDispatch();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [mapProvider, setMapProvider] = useState('interactive'); // Default to interactive analysis
+  const [mapProvider, setMapProvider] = useState('coastal');
   const [currentMonitor, setCurrentMonitor] = useState(null);
   const [currentStats, setCurrentStats] = useState({
-    speed: 1.2,
-    direction: 245,
-    directionText: 'SW',
-    station: 'Mumbai Port - Demo',
-    connected: true,
-    lastUpdate: Date.now(),
-    distance: '2.1'
+    speed: 0,
+    direction: 0,
+    directionText: 'N/A',
+    station: 'Awaiting live station',
+    connected: false,
+    lastUpdate: null,
+    distance: null
   });
   const [userLocation, setUserLocation] = useState(null);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Debug logging
   useEffect(() => {
@@ -92,9 +96,22 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
               setCurrentStats(monitor.getLiveStats());
             },
             async (error) => {
-              console.error('Geolocation error:', error);
-              // Fall back to Mumbai coordinates for demo
-              const fallbackLocation = { lat: 19.0760, lng: 72.8777 };
+              console.error('Geolocation error, trying IP fallback:', error);
+              let fallbackLocation = { lat: 19.0760, lng: 72.8777 };
+              
+              try {
+                const ipResponse = await fetch('https://ipapi.co/json/');
+                if (ipResponse.ok) {
+                  const ipData = await ipResponse.json();
+                  if (ipData.latitude && ipData.longitude) {
+                    fallbackLocation = { lat: ipData.latitude, lng: ipData.longitude };
+                    console.log('📍 Fetched IP Geolocation:', fallbackLocation);
+                  }
+                }
+              } catch (ipError) {
+                console.error('IP Geolocation failed:', ipError);
+              }
+              
               setUserLocation(fallbackLocation);
               
               try {
@@ -136,6 +153,49 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
       dispatch(setActiveTab(initialTab));
     }
   }, [initialTab, dispatch]);
+
+  const getAllowedTabs = (role) => {
+    switch (role) {
+      case 'viewer':
+        return ['overview', 'currents', 'weather', 'satellite'];
+      case 'community_leader':
+        return ['overview', 'currents', 'weather', 'satellite', 'reports'];
+      case 'operator':
+        return ['overview', 'currents', 'weather', 'satellite', 'reports', 'analytics', 'assessment'];
+      default:
+        return ['overview', 'currents', 'weather', 'satellite'];
+    }
+  };
+
+  const allowedTabs = getAllowedTabs(user?.role || 'viewer');
+  const commandMetrics = [
+    { label: 'Threat posture', value: currentStats.connected ? 'Guarded' : 'Degraded', tone: currentStats.connected ? 'text-emerald-500' : 'text-red-500', icon: ShieldCheck },
+    { label: 'Live feeds', value: currentStats.connected ? '5 online' : 'Limited', tone: currentStats.connected ? 'text-cyan-500' : 'text-amber-500', icon: Radio },
+    { label: 'Response window', value: currentStats.speed > 2 ? 'Short' : 'Stable', tone: currentStats.speed > 2 ? 'text-orange-500' : 'text-emerald-500', icon: Gauge },
+    { label: 'Data confidence', value: userLocation ? 'Local' : 'Regional', tone: 'text-sky-500', icon: Database },
+  ];
+
+  const riskSignals = [
+    { label: 'Current drift', value: `${currentStats.speed.toFixed(1)} kts ${currentStats.directionText}`, status: currentStats.speed > 2 ? 'watch' : 'normal' },
+    { label: 'Nearest station', value: currentStats.station, status: currentStats.connected ? 'normal' : 'watch' },
+    { label: 'Coverage mode', value: userLocation ? 'Location-aware' : 'Mumbai fallback', status: userLocation ? 'normal' : 'watch' },
+  ];
+
+  const advancedAdditions = [
+    'AI-assisted risk scoring across weather, current, report, and satellite layers',
+    'Incident verification, escalation, and response coordination workflow',
+    'Evacuation zone intelligence with shelter capacity and route status',
+    'Community reporting designed for low-connectivity coastal regions',
+  ];
+
+  // Enforce role-based access for tabs
+  useEffect(() => {
+    const allowed = getAllowedTabs(user?.role || 'viewer');
+    if (!allowed.includes(activeTab)) {
+      console.log(`🛡️ Access denied to tab '${activeTab}' for role '${user?.role || 'viewer'}'. Redirecting to '${allowed[0]}'...`);
+      dispatch(setActiveTab(allowed[0] || 'overview'));
+    }
+  }, [user?.role, activeTab, dispatch]);
 
   // Function to get user initials
   const getUserInitials = (name) => {
@@ -234,16 +294,50 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
       weather: CloudRain,
       satellite: Satellite,
       reports: Users,
-      analytics: TrendingUp,
+      analytics: BarChart,
+      assessment: Sparkles,
     };
     return icons[tabName] || Activity;
   };
 
+
   const renderTabContent = () => {
+    if (!allowedTabs.includes(activeTab)) {
+      return null;
+    }
     switch (activeTab) {
       case 'overview':
         return (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 relative">
+          <div className="space-y-6">
+            <section className="coastal-panel-strong p-5">
+              <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
+                <div className="min-w-0">
+                  <p className="command-kicker">Coastal Guardian Command</p>
+                  <h1 style={{ color: 'var(--text-primary)' }} className="mt-1 text-2xl md:text-3xl font-black">
+                    Coastal Threat Intelligence Platform
+                  </h1>
+                  <p style={{ color: 'var(--text-secondary)' }} className="mt-2 max-w-3xl text-sm md:text-base">
+                    Real-time coastal conditions, satellite observations, community reports, and response insights in one operational view.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 xl:min-w-[620px] gap-3">
+                  {commandMetrics.map((metric) => {
+                    const Icon = metric.icon;
+                    return (
+                      <div key={metric.label} className="rounded-lg border p-3" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--surface-overlay)' }}>
+                        <div className="flex items-center justify-between gap-2">
+                          <Icon className={`w-4 h-4 ${metric.tone}`} />
+                          <span className={`text-xs font-black ${metric.tone}`}>{metric.value}</span>
+                        </div>
+                        <p style={{ color: 'var(--text-muted)' }} className="mt-2 text-xs font-semibold">{metric.label}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 relative">
             {/* Satellite Map - Large, Left Side */}
             <div className="lg:col-span-3 relative">
               <div 
@@ -270,9 +364,13 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                   {/* Header Row */}
                   <div className="flex items-center justify-between">
                     <h3 style={{ color: 'var(--text-primary)' }} className="text-lg font-bold flex items-center relative text-positioning-fix">
-                      <Satellite className="w-6 h-6 text-green-500 mr-2" />
-                      Satellite Map
+                      <Satellite className="w-6 h-6 text-teal-500 mr-2" />
+                      Coastal Operations Map
                     </h3>
+                    <span className="status-pill">
+                      <span className={`w-2 h-2 rounded-full ${currentStats.connected ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                      {currentStats.connected ? 'Live monitoring' : 'Regional view'}
+                    </span>
                   </div>
                   
                   {/* Controls Row */}
@@ -280,56 +378,51 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                     {/* Map Provider Toggle */}
                     <div className="flex items-center space-x-2 flex-wrap">
                       <button
-                        onClick={() => setMapProvider('interactive')}
-                        className={`px-3 py-1 text-xs rounded-full transition-colors whitespace-nowrap ${
-                          mapProvider === 'interactive' 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        onClick={() => setMapProvider('coastal')}
+                        className={`px-3 py-1 text-xs rounded-full transition-all whitespace-nowrap ${
+                          mapProvider === 'coastal' 
+                            ? 'text-white font-extrabold shadow-sm' 
+                            : 'hover:opacity-90'
                         }`}
+                        style={{
+                          backgroundColor: mapProvider === 'coastal' ? 'var(--accent-color)' : 'var(--surface-sunken)',
+                          color: mapProvider === 'coastal' ? '#ffffff' : 'var(--text-secondary)',
+                        }}
                       >
-                        Interactive
+                        Live Map
                       </button>
                       <button
                         onClick={() => setMapProvider('mapbox')}
-                        className={`px-3 py-1 text-xs rounded-full transition-colors whitespace-nowrap ${
+                        className={`px-3 py-1 text-xs rounded-full transition-all whitespace-nowrap ${
                           mapProvider === 'mapbox' 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                            ? 'text-white font-extrabold shadow-sm' 
+                            : 'hover:opacity-90'
                         }`}
+                        style={{
+                          backgroundColor: mapProvider === 'mapbox' ? 'var(--accent-color)' : 'var(--surface-sunken)',
+                          color: mapProvider === 'mapbox' ? '#ffffff' : 'var(--text-secondary)',
+                        }}
                       >
                         Mapbox
-                      </button>
-                      <button
-                        onClick={() => setMapProvider('coastal')}
-                        className={`px-3 py-1 text-xs rounded-full transition-colors whitespace-nowrap ${
-                          mapProvider === 'coastal' 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                        }`}
-                      >
-                        Coastal Monitor
                       </button>
                     </div>
                     
                     {/* Description Text */}
-                    <div className="text-sm text-slate-400 text-right sm:text-left sm:max-w-md relative">
-                      {mapProvider === 'interactive' ? 'Interactive Coastal Analysis Dashboard' : 
-                       mapProvider === 'coastal' ? 'Advanced Mapbox Coastal Monitoring' :
-                       mapProvider === 'mapbox' ? 'Mapbox Satellite View' :
-                       "Interactive Coastal Areas Monitoring"}
+                    <div style={{ color: 'var(--text-muted)' }} className="text-sm text-right sm:text-left sm:max-w-md relative">
+                      {mapProvider === 'coastal' ? 'Operational coastal monitoring layer' :
+                       mapProvider === 'mapbox' ? 'Satellite basemap and observation layer' :
+                       "Coastal monitoring layer"}
                     </div>
                   </div>
                 </div>
                 <div className="h-[650px] sm:h-[700px] lg:h-[720px] w-full overflow-hidden rounded-lg">
                   <MapErrorBoundary>
-                    {mapProvider === 'interactive' ? (
-                      <FallbackMap />
-                    ) : mapProvider === 'coastal' ? (
+                    {mapProvider === 'coastal' ? (
                       <MapboxCoastalMonitor userLocation={userLocation} />
                     ) : mapProvider === 'mapbox' ? (
                       <MapboxSatelliteMap />
                     ) : (
-                      <FallbackMap />
+                      <MapboxCoastalMonitor userLocation={userLocation} />
                     )}
                   </MapErrorBoundary>
                 </div>
@@ -358,7 +451,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
               >
                 <h3 style={{ color: 'var(--text-primary)', position: 'relative', zIndex: 1 }} className="text-lg font-bold mb-4 flex items-center text-positioning-fix">
                   <Activity className="w-5 h-5 text-cyan-500 mr-2" />
-                  Quick Stats
+                  Risk Intelligence
                 </h3>
                 <div className="space-y-3 relative z-1 text-positioning-fix">
                   <div className="flex justify-between items-center text-positioning-fix">
@@ -371,37 +464,57 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-positioning-fix">
-                    <span className="text-slate-400 text-positioning-fix">Current Speed</span>
+                    <span style={{ color: 'var(--text-muted)' }} className="text-positioning-fix">Current Speed</span>
                     <span className="font-semibold text-blue-400 text-positioning-fix">
                       {currentStats.speed.toFixed(1)} kts
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-positioning-fix">
-                    <span className="text-slate-400 text-positioning-fix">Direction</span>
+                    <span style={{ color: 'var(--text-muted)' }} className="text-positioning-fix">Direction</span>
                     <span className="font-semibold text-cyan-400 text-positioning-fix">
                       {currentStats.directionText} ({currentStats.direction}°)
                     </span>
                   </div>
-                  <div className="border-t border-slate-600 pt-4 mt-4">
-                    <div className="text-slate-400 text-xs mb-2">
+                  <div className="border-t pt-4 mt-4" style={{ borderColor: 'var(--card-border)' }}>
+                    <div style={{ color: 'var(--text-muted)' }} className="text-xs mb-2">
                       Station: {currentStats.station}
                     </div>
                     {userLocation && (
                       <>
-                        <div className="text-slate-400 text-xs mb-2">
+                        <div style={{ color: 'var(--text-muted)' }} className="text-xs mb-2">
                           Location: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
                         </div>
                         {currentStats.distance && (
-                          <div className="text-slate-400 text-xs mb-2">
+                          <div style={{ color: 'var(--text-muted)' }} className="text-xs mb-2">
                             Distance: {currentStats.distance}km
                           </div>
                         )}
                       </>
                     )}
-                    <div className="text-slate-400 text-xs">
+                    <div style={{ color: 'var(--text-muted)' }} className="text-xs">
                       Updated: {currentStats.lastUpdate ? new Date(currentStats.lastUpdate).toLocaleTimeString() : 'Never'}
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <div className="coastal-panel p-4">
+                <h3 style={{ color: 'var(--text-primary)' }} className="text-base font-bold mb-3 flex items-center">
+                  <Compass className="w-5 h-5 text-teal-500 mr-2" />
+                  Signal Board
+                </h3>
+                <div className="space-y-3">
+                  {riskSignals.map((signal) => (
+                    <div key={signal.label} className="flex items-start justify-between gap-3 border-b pb-3 last:border-b-0 last:pb-0" style={{ borderColor: 'var(--card-border)' }}>
+                      <div>
+                        <p style={{ color: 'var(--text-muted)' }} className="text-xs font-semibold">{signal.label}</p>
+                        <p style={{ color: 'var(--text-primary)' }} className="text-sm font-bold mt-0.5">{signal.value}</p>
+                      </div>
+                      <span className={`text-xs font-black ${signal.status === 'normal' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                        {signal.status === 'normal' ? 'OK' : 'WATCH'}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -420,15 +533,16 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                   </h3>
                   <button
                     onClick={handleRefreshCurrents}
-                    className="p-1 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+                    className="p-1 rounded-lg transition-colors"
+                    style={{ backgroundColor: 'var(--surface-sunken)' }}
                     title="Refresh current data"
                   >
-                    <RefreshCw className="w-4 h-4 text-slate-400 hover:text-white" />
+                    <RefreshCw className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                   </button>
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-400">{currentStats.station}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{currentStats.station}</span>
                     <span className={`${currentStats.connected ? 'text-green-400' : 'text-red-400'}`}>
                       {currentStats.connected ? 'connected' : 'disconnected'}
                     </span>
@@ -438,12 +552,13 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                       <div className="flex items-center justify-between text-red-400 text-sm">
                         <div className="flex items-center">
                           <RefreshCw className="w-4 h-4 mr-2" />
-                          {currentStats.station === 'Location unavailable' ? 'Location access needed' : 'Connecting to ocean data...'}
+                          {currentStats.station === 'Location unavailable' ? 'Enable location access for local monitoring' : 'Live ocean current feed unavailable'}
                         </div>
                         {currentStats.station === 'Location unavailable' && (
                           <button
                             onClick={handleRequestLocation}
-                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                            className="px-3 py-1.5 text-white text-xs font-extrabold rounded-lg shadow transition-all hover:scale-105"
+                            style={{ backgroundColor: 'var(--accent-color)' }}
                           >
                             Allow Location
                           </button>
@@ -459,16 +574,16 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                         </div>
                         <div className="grid grid-cols-2 gap-3 text-xs">
                           <div>
-                            <span className="text-slate-400">Speed:</span>
-                            <span className="text-white ml-1">{currentStats.speed.toFixed(1)} kts</span>
+                            <span style={{ color: 'var(--text-muted)' }}>Speed:</span>
+                            <span style={{ color: 'var(--text-primary)' }} className="ml-1">{currentStats.speed.toFixed(1)} kts</span>
                           </div>
                           <div>
-                            <span className="text-slate-400">Direction:</span>
-                            <span className="text-white ml-1">{currentStats.directionText}</span>
+                            <span style={{ color: 'var(--text-muted)' }}>Direction:</span>
+                            <span style={{ color: 'var(--text-primary)' }} className="ml-1">{currentStats.directionText}</span>
                           </div>
                         </div>
                         {currentStats.distance && (
-                          <div className="text-xs text-slate-400">
+                          <div style={{ color: 'var(--text-muted)' }} className="text-xs">
                             Station: {currentStats.distance}km away
                           </div>
                         )}
@@ -479,6 +594,22 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
               </div>
 
 
+              <div className="coastal-panel p-4">
+                <h3 style={{ color: 'var(--text-primary)' }} className="text-base font-bold mb-3 flex items-center">
+                  <Sparkles className="w-5 h-5 text-amber-500 mr-2" />
+                  Operational Capabilities
+                </h3>
+                <div className="space-y-2">
+                  {advancedAdditions.map((item) => (
+                    <div key={item} className="flex gap-2 text-sm">
+                      <span className="mt-1.5 h-2 w-2 rounded-full bg-teal-500 shrink-0"></span>
+                      <span style={{ color: 'var(--text-secondary)' }}>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
             </div>
           </div>
         );
@@ -507,7 +638,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
             <div className="flex items-center justify-between mb-6">
               <h3 style={{ color: 'var(--text-primary)' }} className="text-lg font-bold flex items-center">
                 <Satellite className="w-6 h-6 text-green-500 mr-2" />
-                🇮🇳 Indian Coastal Monitoring - Gujarat & Mumbai
+                Indian Coastal Monitoring - Gujarat and Mumbai
               </h3>
               <div style={{ color: 'var(--text-muted)' }} className="text-sm font-medium">
                 Arabian Sea real-time satellite with animated heatmaps
@@ -524,6 +655,10 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
         
       case 'analytics':
         return <AnalyticsPage />;
+
+      case 'assessment':
+        return <AIQuestionnaire />;
+
         
       default:
         return (
@@ -602,10 +737,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
   return (
     <DashboardProvider>
       <div 
-        className="min-h-screen relative gradient-overlay"
-        style={{
-          background: 'linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%)'
-        }}
+        className="min-h-screen relative gradient-overlay coastal-command-shell"
       >
   {/* Sidebar */}
   <div className={`fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out ${!isMobileView ? (sidebarCollapsed ? 'w-20' : 'w-72') : 'w-72'} ${isMobileView ? (mobileOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'}`}>
@@ -648,7 +780,7 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                     {!sidebarCollapsed && (
                       <div className="ml-3">
                         <h2 style={{ color: 'var(--text-primary)' }} className="font-bold text-lg">CTAS</h2>
-                        <p style={{ color: 'var(--text-muted)' }} className="text-xs">Coastal Monitoring</p>
+                        <p style={{ color: 'var(--text-muted)' }} className="text-xs">Coastal Threat Alert System</p>
                       </div>
                     )}
                   </div>
@@ -680,7 +812,8 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                 { id: 'satellite', label: 'Satellite', icon: Satellite },
                 { id: 'reports', label: 'Reports', icon: Users },
                 { id: 'analytics', label: 'Analytics', icon: BarChart },
-              ].map((tab) => {
+                { id: 'assessment', label: 'AI Assessment', icon: Sparkles },
+              ].filter((tab) => allowedTabs.includes(tab.id)).map((tab) => {
                 const Icon = tab.icon;
                 return (
                     <button
@@ -716,6 +849,29 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                 );
               })}
             </nav>
+
+            {/* Report Incident button for sidebar */}
+            {(!sidebarCollapsed || isMobileView) ? (
+              <div className="p-4">
+                <button
+                  onClick={() => setShowReportModal(true)}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-extrabold shadow-lg shadow-red-950/20 transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                >
+                  <AlertTriangle className="w-5 h-5 animate-pulse" />
+                  <span>Report Incident</span>
+                </button>
+              </div>
+            ) : (
+              <div className="p-4 flex justify-center">
+                <button
+                  onClick={() => setShowReportModal(true)}
+                  className="p-3 rounded-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white shadow-lg shadow-red-950/20 transition-all duration-200"
+                  aria-label="Report Incident"
+                >
+                  <AlertTriangle className="w-6 h-6 animate-pulse" />
+                </button>
+              </div>
+            )}
 
             {/* Desktop User Menu */}
             {!isMobileView && (
@@ -901,6 +1057,14 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
                     <h2 style={{ color: 'var(--text-primary)' }} className="font-bold text-lg ml-2">CTAS</h2>
                   </div>
                 </div>
+                {/* Mobile Report Button */}
+                <button
+                  onClick={() => setShowReportModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-600 to-orange-600 text-white font-extrabold text-xs shadow-md transition-all active:scale-95 touch-manipulation min-h-[32px]"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 animate-pulse" />
+                  <span>Report</span>
+                </button>
               </header>
             )}
 
@@ -949,11 +1113,11 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
             <div className="flex items-center gap-2">
               <span className="text-lg">👋</span>
               <div>
-                <p className="text-gray-800 text-sm font-semibold">
-                  Hi {user?.name || 'Krish'}!
+                  <p className="text-gray-800 text-sm font-semibold">
+                  CTAS Assistant
                 </p>
                 <p className="text-blue-600 text-xs font-medium">
-                  Need coastal insights? 🌊
+                  Ask for coastal risk guidance
                 </p>
               </div>
             </div>
@@ -974,15 +1138,15 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
       {/* Floating Chatbot Toggle Button */}
       <button
         onClick={handleToggleChatbot}
-        className="fixed bottom-6 right-6 w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center z-[9999] transition-all duration-300 hover:scale-110 border-2 border-blue-400"
+        className="fixed bottom-6 right-6 w-16 h-16 bg-slate-900 hover:bg-slate-800 text-white rounded-full shadow-2xl flex items-center justify-center z-[9999] transition-all duration-300 hover:scale-110 border-2 border-slate-700"
         title="Open CTAS Assistant"
         style={{ 
           position: 'fixed',
           bottom: '24px',
           right: '24px',
           zIndex: 9999,
-          background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
-          boxShadow: '0 20px 40px rgba(59, 130, 246, 0.3), 0 0 0 2px rgba(147, 197, 253, 0.5)',
+          background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+          boxShadow: '0 20px 40px rgba(15, 23, 42, 0.4), 0 0 0 2px rgba(148, 163, 184, 0.3)',
           animation: 'pulse 2s infinite'
         }}
       >
@@ -994,6 +1158,18 @@ const InteractiveDashboard = ({ onLogout, initialTab = 'overview' }) => {
         isOpen={isSettingsOpen}
         onClose={handleCloseSettings}
       />
+      
+      {/* Community Report Submission Modal */}
+      {showReportModal && (
+        <CommunityReportForm 
+          onClose={() => setShowReportModal(false)}
+          onSubmit={(report) => {
+            console.log('Report submitted successfully from modal:', report);
+            setShowReportModal(false);
+          }}
+          initialData={false}
+        />
+      )}
       
       {/* Overview Page Layout Fix Styles */}
       <style>{`

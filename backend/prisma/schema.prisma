@@ -1,0 +1,294 @@
+// 🌊 Coastal Guardian Prisma Schema
+// Mapped to PostgreSQL (Neon) or Local Relational Database
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                   String                 @id @default(uuid())
+  name                 String
+  email                String                 @unique
+  password             String
+  role                 String                 @default("viewer") // admin, operator, viewer, community_leader
+  status               String                 @default("active") // active, inactive, suspended
+  organization         String?
+  department           String?
+  phone                String?
+  region               String?
+  latitude             Float?
+  longitude            Float?
+  
+  // Permissions (expanded from Mongoose boolean properties)
+  canCreateAlerts      Boolean                @default(false)
+  canAcknowledgeAlerts Boolean                @default(false)
+  canGenerateReports   Boolean                @default(false)
+  canManageUsers       Boolean                @default(false)
+  canViewDashboard     Boolean                @default(true)
+  canAccessAPI         Boolean                @default(false)
+  
+  // Preferences
+  emailNotifications   Boolean                @default(true)
+  smsNotifications     Boolean                @default(false)
+  alertCritical        Boolean                @default(true)
+  alertWarning         Boolean                @default(true)
+  alertInfo            Boolean                @default(false)
+  dashboardLayout      String?
+  timezone             String                 @default("Asia/Kolkata")
+  
+  // Audit/Utility Info
+  lastLogin            DateTime?
+  loginCount           Int                    @default(0)
+  apiKey               String?                @unique
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  // Relations
+  verifiedReports      EnvironmentalReport[]  @relation("VerifiedByUser")
+  resolvedReports      EnvironmentalReport[]  @relation("ResolvedByUser")
+  comments             Comment[]
+  notifications        Notification[]
+  activityLogs         ActivityLog[]
+  statusHistory        ReportStatusHistory[]
+  questionnaires       Questionnaire[]
+
+  @@index([role, status])
+  @@index([email])
+}
+
+model EnvironmentalReport {
+  id                   String                 @id @default(uuid())
+  reportId             String                 @unique
+  reportType           String                 // weather, coastal, infrastructure, marine, environmental
+  severity             String                 @default("medium") // low, medium, high, critical
+  status               String                 @default("active") // active, investigating, resolved, false_alarm
+  title                String
+  description          String                 @db.Text
+  location             String
+  latitude             Float
+  longitude            Float
+  
+  // Contact Info
+  contactName          String
+  contactPhone         String
+  contactEmail         String?
+  contactOrganization  String?
+  
+  // Weather Conditions (Optional fields mapped to schema columns)
+  windSpeed            String?
+  waveHeight           String?
+  temperature          String?
+  weatherVisibility    String?
+  precipitation        String?
+  pressure             String?
+  
+  // Emergency Details
+  immediateRisk        Boolean                @default(false)
+  affectedArea         String?
+  estimatedPeople      String?
+  evacuationNeeded     Boolean                @default(false)
+  infrastructureDamage Boolean                @default(false)
+  
+  // Notifications Radius
+  smsRadius            Float                  @default(5.0)
+  urgentAlert          Boolean                @default(false)
+  notifyAuthorities    Boolean                @default(true)
+  notifyCommunity      Boolean                @default(true)
+  
+  // SMS Tracking
+  smsSent              Int                    @default(0)
+  smsSuccessful        Int                    @default(0)
+  smsFailed            Int                    @default(0)
+  smsLastSentAt        DateTime?
+  
+  // Verification Details
+  verified             Boolean                @default(false)
+  verifiedById         String?
+  verifiedAt           DateTime?
+  verificationNotes    String?
+  
+  // Sorting & Metadata
+  priority             Int                    @default(5)
+  tags                 String[]               @default([])
+  source               String                 @default("community") // community, authority, sensor, satellite, social_media
+  visibility           String                 @default("public") // public, authorities_only, emergency_only
+  followUpRequired     Boolean                @default(false)
+  
+  // Estimated Impact
+  peopleAffected       Int?
+  economicImpact       String?
+  environmentalImpact  String?
+  infrastructureImpact String?
+  
+  // Resolution Info
+  resolvedAt           DateTime?
+  resolvedById         String?
+  resolutionNotes      String?
+  
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  // Relations
+  verifiedBy           User?                  @relation("VerifiedByUser", fields: [verifiedById], references: [id], onDelete: SetNull)
+  resolvedBy           User?                  @relation("ResolvedByUser", fields: [resolvedById], references: [id], onDelete: SetNull)
+  images               ReportImage[]
+  aiAnalysis           AIAnalysis?
+  comments             Comment[]
+  statusHistory        ReportStatusHistory[]
+
+  @@index([reportType, severity])
+  @@index([status, createdAt])
+  @@index([priority, createdAt])
+}
+
+model ReportImage {
+  id                   String                 @id @default(uuid())
+  url                  String
+  reportId             String
+  createdAt            DateTime               @default(now())
+
+  // Relations
+  report               EnvironmentalReport    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+}
+
+model AIAnalysis {
+  id                   String                 @id @default(uuid())
+  reportId             String                 @unique
+  severityScore        Float                  @default(0.0)
+  detectedIssues       String[]               @default([])
+  suggestedAction      String                 @db.Text
+  analysisSummary      String?                @db.Text
+  confidence           Float                  @default(1.0)
+  createdAt            DateTime               @default(now())
+
+  // Relations
+  report               EnvironmentalReport    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+}
+
+model Comment {
+  id                   String                 @id @default(uuid())
+  reportId             String
+  userId               String
+  userType             String                 // authority, emergency_service, community_member, system
+  message              String                 @db.Text
+  action               String?                // investigating, dispatched, resolved, false_alarm, info_request
+  createdAt            DateTime               @default(now())
+
+  // Relations
+  report               EnvironmentalReport    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Alert {
+  id                   String                 @id @default(uuid())
+  title                String
+  description          String                 @db.Text
+  severity             String                 // info, warning, critical
+  location             String
+  latitude             Float
+  longitude            Float
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+}
+
+model Location {
+  id                   String                 @id @default(uuid())
+  name                 String
+  region               String
+  latitude             Float
+  longitude            Float
+  radius               Float                  @default(10.0) // Radius in km
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+}
+
+model Notification {
+  id                   String                 @id @default(uuid())
+  userId               String
+  title                String
+  message              String                 @db.Text
+  read                 Boolean                @default(false)
+  createdAt            DateTime               @default(now())
+
+  // Relations
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TidalData {
+  id                   String                 @id @default(uuid())
+  stationId            String
+  stationName          String
+  waterLevel           Float
+  tideLevel            Float?
+  timestamp            DateTime
+  createdAt            DateTime               @default(now())
+
+  @@index([stationId, timestamp])
+}
+
+model EnvironmentalMetric {
+  id                   String                 @id @default(uuid())
+  locationId           String?
+  waterTemp            Float?
+  salinity             Float?
+  chlorophyll          Float?
+  turbidity            Float?
+  pH                   Float?
+  dissolvedOxygen      Float?
+  windSpeed            Float?
+  waveHeight           Float?
+  timestamp            DateTime               @default(now())
+  createdAt            DateTime               @default(now())
+
+  @@index([timestamp])
+}
+
+model ActivityLog {
+  id                   String                 @id @default(uuid())
+  userId               String
+  action               String
+  details              String?                @db.Text
+  createdAt            DateTime               @default(now())
+
+  // Relations
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ReportStatusHistory {
+  id                   String                 @id @default(uuid())
+  reportId             String
+  status               String
+  changedById          String
+  notes                String?                @db.Text
+  createdAt            DateTime               @default(now())
+
+  // Relations
+  report               EnvironmentalReport    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  changedBy            User                   @relation(fields: [changedById], references: [id], onDelete: Cascade)
+}
+
+model Questionnaire {
+  id                   String                 @id @default(uuid())
+  userId               String
+  answers              String                 @db.Text // JSON string of answers
+  score                Float                  @default(0.0)
+  riskLevel            String                 @default("low")
+  assessment           String                 @db.Text
+  recommendations      String                 @db.Text // JSON string of recommendations
+  createdAt            DateTime               @default(now())
+
+  // Relations
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ReportEmbeddingVector {
+  reportId             String                 @id
+  embedding            Unsupported("vector")
+}

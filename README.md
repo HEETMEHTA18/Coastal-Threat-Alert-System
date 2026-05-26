@@ -35,8 +35,8 @@
 ### Backend
 - Node.js
 - Express.js
-- MongoDB
-- Mongoose
+- PostgreSQL & Neon Database
+- Prisma ORM (with custom runtime emulator fallback)
 - JWT (authentication)
 - WebSocket (real-time, optional)
 
@@ -46,6 +46,7 @@
 - TensorFlow
 - OpenCV
 - NumPy, Pandas
+- Gemini Multimodal API
 
 ### DevOps & Tooling
 - Docker
@@ -61,7 +62,7 @@ Coastal-Guardian/
 ├── frontend/      # React app (UI)
 │   ├── src/
 │   └── public/
-├── backend/       # Node.js/Express API
+├── backend/       # Node.js/Express API (PostgreSQL + Prisma)
 │   ├── src/
 │   └── scripts/
 ├── ai-models/     # Python ML models & APIs
@@ -77,7 +78,7 @@ Coastal-Guardian/
 ### 1. Clone the Repository
 ```bash
 git clone https://github.com/HEETMEHTA18/Coastal-Threat-Alert-System
-cd fronend ; npm run dev ;  cd backend ;npm run dev 
+cd frontend ; npm run dev ;  cd backend ; npm run dev 
 ```
 
 ### 2. Environment Setup
@@ -94,6 +95,7 @@ npm run dev
 ```bash
 cd backend
 npm install
+npx prisma generate  # generates local types
 npm run dev
 ```
 
@@ -110,7 +112,7 @@ python api/app.py
 
 See `.env.example` in each folder for required variables:
 
-- `MONGODB_URI`, `JWT_SECRET`, `OPENWEATHER_API_KEY`, `NASA_API_KEY`, etc.
+- `DATABASE_URL`, `JWT_SECRET`, `OPENWEATHER_API_KEY`, `GEMINI_API_KEY`, etc.
 - **Never commit real secrets to GitHub!**
 
 ---

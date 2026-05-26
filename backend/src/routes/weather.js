@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 
+const resolveWeatherKey = () => process.env.WEATHER_API_KEY || null;
+
 // @route   GET /api/weather/current
 // @desc    Get current weather
 // @access  Public
@@ -9,9 +11,10 @@ router.get('/current', async (req, res) => {
     const { city = 'Mumbai' } = req.query;
     
     // Use OpenWeatherMap service if API key is available
-    if (process.env.OPENWEATHER_API_KEY && process.env.OPENWEATHER_API_KEY !== 'your_openweather_api_key_here') {
+    const weatherKey = resolveWeatherKey();
+    if (weatherKey && weatherKey !== 'your_weather_api_key_here') {
       const OpenWeatherMapService = require('../services/openWeatherMapService');
-      const weatherService = new OpenWeatherMapService(process.env.OPENWEATHER_API_KEY);
+      const weatherService = new OpenWeatherMapService(weatherKey);
       
       const weather = await weatherService.getCurrentWeather(city);
       return res.json({
@@ -21,18 +24,9 @@ router.get('/current', async (req, res) => {
       });
     }
     
-    // Fallback to free service
-    const FreeWeatherService = require('../services/freeWeatherService');
-    const freeService = new FreeWeatherService();
-    
-    // Get coordinates for the city
-    const coords = freeService.getCityCoordinates(city);
-    const weather = await freeService.getCurrentWeather(coords.lat, coords.lon, city);
-    
-    res.json({
-      status: 'success',
-      data: weather,
-      source: 'free-service'
+    res.status(400).json({
+      status: 'error',
+      message: 'WEATHER_API_KEY is not configured on the server'
     });
   } catch (error) {
     console.error('Weather error:', error);
@@ -51,9 +45,10 @@ router.get('/forecast', async (req, res) => {
     const { city = 'Mumbai', days = 5 } = req.query;
     
     // Use OpenWeatherMap service if API key is available
-    if (process.env.OPENWEATHER_API_KEY && process.env.OPENWEATHER_API_KEY !== 'your_openweather_api_key_here') {
+    const weatherKey = resolveWeatherKey();
+    if (weatherKey && weatherKey !== 'your_weather_api_key_here') {
       const OpenWeatherMapService = require('../services/openWeatherMapService');
-      const weatherService = new OpenWeatherMapService(process.env.OPENWEATHER_API_KEY);
+      const weatherService = new OpenWeatherMapService(weatherKey);
       
       const forecast = await weatherService.getForecast(city, parseInt(days));
       return res.json({
@@ -63,17 +58,9 @@ router.get('/forecast', async (req, res) => {
       });
     }
     
-    // Fallback to free service
-    const FreeWeatherService = require('../services/freeWeatherService');
-    const freeService = new FreeWeatherService();
-    
-    const coords = freeService.getCityCoordinates(city);
-    const forecast = await freeService.getForecast(coords.lat, coords.lon, parseInt(days));
-    
-    res.json({
-      status: 'success',
-      data: forecast,
-      source: 'free-service'
+    res.status(400).json({
+      status: 'error',
+      message: 'WEATHER_API_KEY is not configured on the server'
     });
   } catch (error) {
     console.error('Forecast error:', error);

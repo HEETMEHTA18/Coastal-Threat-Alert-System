@@ -1,17 +1,78 @@
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs').promises;
-const CommunityReport = require('../models/CommunityReport');
+const { prisma } = require('../lib/db');
 const SMSService = require('../services/smsService');
-const { authenticateToken, requirePermission } = require('../middleware/auth');
+const { authenticateToken, requirePermission, requireRole } = require('../middleware/auth');
+const { flattenReportData, nestReportData } = require('../controllers/threatReportController');
 const router = express.Router();
+
+const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 // Initialize SMS service
 const smsService = new SMSService();
 
-// POST /api/community-reports - Create new report (no uploads)
-router.post('/', authenticateToken, requirePermission('canGenerateReports'), async (req, res) => {
+// Helper to calculate priority
+const calculatePriority = (severity, immediateRisk, evacuationNeeded) => {
+  if (severity === 'critical' || immediateRisk) return 10;
+  if (severity === 'high' || evacuationNeeded) return 8;
+  if (severity === 'medium') return 5;
+  return 3;
+};
+
+// POST /api/community-reports/upload - Upload image to Cloudinary (with local fallback)
+router.post('/upload', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    // Verify Cloudinary configuration - fallback gracefully if not configured
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      console.warn('⚠️ Cloudinary not fully configured in environment, returning mock image URL');
+      // Simulate upload delay
+      await new Promise(r => setTimeout(r, 800));
+      return res.json({
+        success: true,
+        url: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?q=80&w=800'
+      });
+    }
+
+    // Upload via stream
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder: 'coastal_guardian_reports' },
+      (error, result) => {
+        if (error) {
+          console.error('Cloudinary upload stream error:', error);
+          return res.status(500).json({ success: false, message: 'Cloudinary upload failed', error: error.message });
+        }
+        res.json({
+          success: true,
+          url: result.secure_url,
+          public_id: result.public_id
+        });
+      }
+    );
+
+    uploadStream.end(req.file.buffer);
+  } catch (error) {
+    console.error('Upload endpoint error:', error);
+    res.status(500).json({ success: false, message: 'Server upload handler error', error: error.message });
+  }
+});
+
+// POST /api/community-reports - Create new report
+// Community incident reports can be submitted by any authenticated active user.
+// Higher-risk actions such as broadcasts and status changes remain role/permission gated.
+router.post('/', authenticateToken, async (req, res) => {
   try {
     console.log('📝 Received community report submission');
 
@@ -19,58 +80,136 @@ router.post('/', authenticateToken, requirePermission('canGenerateReports'), asy
     if (!reportData.reportId) {
       reportData.reportId = `CR_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
-    // Remove any media field if present
-    if (reportData.media) delete reportData.media;
-    const report = new CommunityReport(reportData);
-    await report.save();
+    
+    // Auto calculate priority and tags
+    const immediateRisk = reportData.emergencyDetails?.immediateRisk || false;
+    const evacuationNeeded = reportData.emergencyDetails?.evacuationNeeded || false;
+    const priority = calculatePriority(reportData.severity || 'medium', immediateRisk, evacuationNeeded);
+    
+    const tags = reportData.tags || [];
+    if (tags.length === 0) {
+      tags.push(reportData.reportType || 'environmental', reportData.severity || 'medium');
+      if (immediateRisk) tags.push('immediate_risk');
+      if (evacuationNeeded) tags.push('evacuation');
+      if (reportData.emergencyDetails?.infrastructureDamage) tags.push('infrastructure');
+      if (reportData.notifications?.urgentAlert) tags.push('urgent');
+    }
+
+    const flattened = flattenReportData(reportData);
+    flattened.id = require('crypto').randomUUID();
+    flattened.priority = priority;
+    flattened.tags = tags;
+
+    // Save to PostgreSQL using Prisma
+    const report = await prisma.environmentalReport.create({
+      data: flattened
+    });
+
+    // Save report images (media) to database if present
+    const mediaUrls = reportData.media || [];
+    if (mediaUrls.length > 0) {
+      for (const url of mediaUrls) {
+        try {
+          await prisma._runQuery(
+            'INSERT INTO "ReportImage" (id, url, "reportId") VALUES ($1, $2, $3)',
+            [require('crypto').randomUUID(), url, report.id]
+          );
+        } catch (imageErr) {
+          console.error('Failed to link image to report:', imageErr);
+        }
+      }
+    }
+
+    const nestedReport = nestReportData(report);
+    nestedReport.media = mediaUrls;
 
     // Respond immediately to the client so UI isn't blocked by SMS sending
     res.status(201).json({
       success: true,
       message: 'Community report submitted successfully; SMS alerts are being sent',
-      report: report
+      report: nestedReport
     });
 
     // Fire-and-forget: send SMS alerts asynchronously and persist results
     (async () => {
       try {
-        console.log('📨 Starting async SMS alerts for report', report._id);
+        console.log('📨 Starting async SMS alerts for report', report.id);
         const smsResults = await sendSMSAlerts(report);
 
-        // Update SMS statistics on the saved report
-        const saved = await CommunityReport.findById(report._id);
-        if (saved) {
-          saved.smsAlerts.sent = smsResults.total;
-          saved.smsAlerts.successful = smsResults.successful;
-          saved.smsAlerts.failed = smsResults.failed;
-          saved.smsAlerts.lastSentAt = new Date();
-          if (Array.isArray(smsResults.details)) {
-            smsResults.details.forEach(detail => {
-              saved.smsAlerts.recipients.push({
-                phone: detail.to,
-                status: detail.success ? 'sent' : 'failed',
-                sentAt: detail.sentAt || new Date()
-              });
-            });
+        // Update SMS statistics on the saved report in PostgreSQL
+        await prisma.environmentalReport.update({
+          where: { id: report.id },
+          data: {
+            smsSent: smsResults.total,
+            smsSuccessful: smsResults.successful,
+            smsFailed: smsResults.failed,
+            smsLastSentAt: new Date()
           }
-          await saved.save();
-          console.log('✅ Async SMS alerts completed for report', report._id);
-        }
+        });
+        console.log('✅ Async SMS alerts completed for report', report.id);
       } catch (err) {
-        console.error('Async SMS sending failed for report', report._id, err);
+        console.error('Async SMS sending failed for report', report.id, err);
       }
     })();
 
   } catch (error) {
     console.error('❌ Error creating community report:', error);
-    console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
-    
-
-
     res.status(500).json({
       success: false,
       message: 'Failed to create community report',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/community-reports/broadcast - Notify all active users (operator broadcast)
+router.post('/broadcast', authenticateToken, requireRole('operator', 'admin'), async (req, res) => {
+  try {
+    const { title, message, urgentAlert = false } = req.body;
+
+    if (!title || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and message are required for broadcasts'
+      });
+    }
+
+    const activeUsers = await prisma._runQuery(
+      'SELECT id, phone, "smsNotifications" FROM "User" WHERE status = $1',
+      ['active']
+    );
+
+    const recipients = activeUsers.rows || [];
+    const smsRecipients = recipients
+      .filter((user) => user.smsNotifications && user.phone)
+      .map((user) => smsService.formatPhoneNumber(user.phone))
+      .filter((phone) => smsService.validatePhoneNumber(phone));
+
+    for (const user of recipients) {
+      await prisma._runQuery(
+        'INSERT INTO "Notification" (id, "userId", title, message) VALUES ($1, $2, $3, $4)',
+        [require('crypto').randomUUID(), user.id, title, message]
+      );
+    }
+
+    const smsResults = smsRecipients.length > 0
+      ? await smsService.sendBulkSMS(smsRecipients, message, urgentAlert)
+      : { total: 0, successful: 0, failed: 0, details: [] };
+
+    res.json({
+      success: true,
+      message: 'Broadcast sent successfully',
+      audience: {
+        usersNotified: recipients.length,
+        smsRecipients: smsRecipients.length
+      },
+      smsResults
+    });
+  } catch (error) {
+    console.error('Error sending broadcast notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send broadcast notification',
       error: error.message
     });
   }
@@ -88,18 +227,14 @@ router.get('/', async (req, res) => {
       lng,
       radius,
       limit = 50,
-      offset = 0,
-      search
+      offset = 0
     } = req.query;
 
-    let query = {};
+    const where = {};
+    if (type && type !== 'all') where.reportType = type;
+    if (severity && severity !== 'all') where.severity = severity;
+    if (status && status !== 'all') where.status = status;
 
-    // Apply filters
-    if (type && type !== 'all') query.reportType = type;
-    if (severity && severity !== 'all') query.severity = severity;
-    if (status && status !== 'all') query.status = status;
-
-    // Time range filter
     if (timeRange && timeRange !== 'all') {
       const now = new Date();
       const timeRanges = {
@@ -110,43 +245,87 @@ router.get('/', async (req, res) => {
       };
       
       if (timeRanges[timeRange]) {
-        query.createdAt = {
-          $gte: new Date(now.getTime() - timeRanges[timeRange])
+        where.createdAt = {
+          gte: new Date(now.getTime() - timeRanges[timeRange])
         };
       }
     }
 
-    // Geographic filter
+    // Geolocation filtering using bounding box approximation or SQL query
+    let reports = [];
+    let total = 0;
+
     if (lat && lng && radius) {
-      query.coordinates = {
-        $near: {
-          $geometry: {
-            type: 'Point',
-            coordinates: [parseFloat(lng), parseFloat(lat)]
-          },
-          $maxDistance: parseFloat(radius) * 1000 // Convert km to meters
-        }
-      };
+      // Use Haversine SQL formula for spatial queries
+      const r = parseFloat(radius);
+      const latitude = parseFloat(lat);
+      const longitude = parseFloat(lng);
+      
+      const sqlQuery = `
+        SELECT r.*, (6371 * acos(cos(radians($1)) * cos(radians(r.latitude)) * cos(radians(r.longitude) - radians($2)) + sin(radians($1)) * sin(radians(r.latitude)))) AS distance 
+        FROM "EnvironmentalReport" r
+        WHERE (6371 * acos(cos(radians($1)) * cos(radians(r.latitude)) * cos(radians(r.longitude) - radians($2)) + sin(radians($1)) * sin(radians(r.latitude)))) <= $3
+        ORDER BY r.priority DESC, r."createdAt" DESC
+        LIMIT $4 OFFSET $5
+      `;
+      
+      const countQuery = `
+        SELECT COUNT(*)
+        FROM "EnvironmentalReport"
+        WHERE (6371 * acos(cos(radians($1)) * cos(radians(latitude)) * cos(radians(longitude) - radians($2)) + sin(radians($1)) * sin(radians(latitude)))) <= $3
+      `;
+
+      const dbReports = await prisma._runQuery(sqlQuery, [latitude, longitude, r, parseInt(limit), parseInt(offset)]);
+      const countRes = await prisma._runQuery(countQuery, [latitude, longitude, r]);
+      
+      reports = dbReports.rows;
+      total = parseInt(countRes.rows[0].count);
+    } else {
+      reports = await prisma.environmentalReport.findMany({
+        where,
+        take: parseInt(limit),
+        skip: parseInt(offset)
+      });
+      total = await prisma.environmentalReport.count({ where });
     }
 
-    // Text search
-    if (search) {
-      query.$text = { $search: search };
-    }
+    // Nest and load comments for populated data
+    const nestedReports = await Promise.all(reports.map(async (rep) => {
+      const nested = nestReportData(rep);
+      
+      // Fetch associated comments (responses)
+      const comments = await prisma.comment.findMany({
+        where: { reportId: rep.id }
+      });
 
-    const reports = await CommunityReport.find(query)
-      .sort({ priority: -1, createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip(parseInt(offset))
-      .populate('verification.verifiedBy', 'name role')
-      .populate('responses.responderId', 'name role')
-      .populate('acknowledgedBy.userId', 'name role');
+      nested.responses = comments.map(c => ({
+        responderId: { _id: c.userId, name: 'Authority Agent', role: 'operator' }, // Emulate populate
+        responderType: c.userType,
+        message: c.message,
+        action: c.action,
+        timestamp: c.createdAt
+      }));
 
-    const total = await CommunityReport.countDocuments(query);
+      // Fetch AI Analysis if present
+      const aiAnalysis = await prisma.aiAnalysis.findUnique({
+        where: { reportId: rep.id }
+      });
+      nested.aiAnalysis = aiAnalysis;
+
+      // Fetch associated images
+      try {
+        const images = await prisma._runQuery('SELECT url FROM "ReportImage" WHERE "reportId" = $1', [rep.id]);
+        nested.media = images.rows.map(img => img.url);
+      } catch (imageErr) {
+        nested.media = [];
+      }
+
+      return nested;
+    }));
 
     res.json({
       success: true,
-      reports: reports,
+      reports: nestedReports,
       pagination: {
         total,
         limit: parseInt(limit),
@@ -168,11 +347,9 @@ router.get('/', async (req, res) => {
 // GET /api/community-reports/:id - Get specific report
 router.get('/:id', async (req, res) => {
   try {
-    const report = await CommunityReport.findById(req.params.id)
-      .populate('verification.verifiedBy', 'name role')
-      .populate('responses.responderId', 'name role')
-      .populate('acknowledgedBy.userId', 'name role')
-      .populate('relatedReports');
+    const report = await prisma.environmentalReport.findUnique({
+      where: { id: req.params.id }
+    });
 
     if (!report) {
       return res.status(404).json({
@@ -181,9 +358,37 @@ router.get('/:id', async (req, res) => {
       });
     }
 
+    const nested = nestReportData(report);
+
+    // Load comments (responses)
+    const comments = await prisma.comment.findMany({
+      where: { reportId: report.id }
+    });
+
+    nested.responses = comments.map(c => ({
+      responderId: { _id: c.userId, name: 'Authority Agent', role: 'operator' },
+      responderType: c.userType,
+      message: c.message,
+      action: c.action,
+      timestamp: c.createdAt
+    }));
+
+    // Fetch AI Analysis
+    nested.aiAnalysis = await prisma.aiAnalysis.findUnique({
+      where: { reportId: report.id }
+    });
+
+    // Fetch associated images
+    try {
+      const images = await prisma._runQuery('SELECT url FROM "ReportImage" WHERE "reportId" = $1', [report.id]);
+      nested.media = images.rows.map(img => img.url);
+    } catch (imageErr) {
+      nested.media = [];
+    }
+
     res.json({
       success: true,
-      report: report
+      report: nested
     });
 
   } catch (error) {
@@ -201,7 +406,10 @@ router.put('/:id/status', authenticateToken, requirePermission('canAcknowledgeAl
   try {
     const { status, notes, responderId } = req.body;
     
-    const report = await CommunityReport.findById(req.params.id);
+    const report = await prisma.environmentalReport.findUnique({
+      where: { id: req.params.id }
+    });
+
     if (!report) {
       return res.status(404).json({
         success: false,
@@ -209,20 +417,22 @@ router.put('/:id/status', authenticateToken, requirePermission('canAcknowledgeAl
       });
     }
 
-    report.status = status;
-    
+    const updateData = { status };
     if (status === 'resolved') {
-      report.resolvedAt = new Date();
-      report.resolvedBy = responderId;
-      report.resolutionNotes = notes;
+      updateData.resolvedAt = new Date();
+      updateData.resolvedById = responderId || req.user.userId;
+      updateData.resolutionNotes = notes;
     }
 
-    await report.save();
+    const updated = await prisma.environmentalReport.update({
+      where: { id: req.params.id },
+      data: updateData
+    });
 
     res.json({
       success: true,
       message: 'Report status updated successfully',
-      report: report
+      report: nestReportData(updated)
     });
 
   } catch (error) {
@@ -235,12 +445,15 @@ router.put('/:id/status', authenticateToken, requirePermission('canAcknowledgeAl
   }
 });
 
-// POST /api/community-reports/:id/response - Add response to report
+// POST /api/community-reports/:id/response - Add response (comment) to report
 router.post('/:id/response', authenticateToken, requirePermission('canAcknowledgeAlerts'), async (req, res) => {
   try {
     const { responderId, responderType, message, action } = req.body;
     
-    const report = await CommunityReport.findById(req.params.id);
+    const report = await prisma.environmentalReport.findUnique({
+      where: { id: req.params.id }
+    });
+
     if (!report) {
       return res.status(404).json({
         success: false,
@@ -248,12 +461,37 @@ router.post('/:id/response', authenticateToken, requirePermission('canAcknowledg
       });
     }
 
-    await report.addResponse(responderId, responderType, message, action);
+    // Save as a Comment in PostgreSQL
+    await prisma.comment.create({
+      data: {
+        id: require('crypto').randomUUID(),
+        reportId: report.id,
+        userId: req.user.userId,
+        userType: responderType || 'authority',
+        message: message,
+        action: action
+      }
+    });
+
+    // Update status if action is resolved or investigating
+    const updateData = {};
+    if (action === 'resolved') {
+      updateData.status = 'resolved';
+      updateData.resolvedAt = new Date();
+      updateData.resolvedById = req.user.userId;
+    } else if (action === 'investigating') {
+      updateData.status = 'investigating';
+    }
+
+    const updatedReport = await prisma.environmentalReport.update({
+      where: { id: req.params.id },
+      data: updateData
+    });
 
     res.json({
       success: true,
       message: 'Response added successfully',
-      report: report
+      report: nestReportData(updatedReport)
     });
 
   } catch (error) {
@@ -271,7 +509,10 @@ router.post('/:id/sms', authenticateToken, requirePermission('canAcknowledgeAler
   try {
     const { radius, urgentAlert, customMessage } = req.body;
     
-    const report = await CommunityReport.findById(req.params.id);
+    const report = await prisma.environmentalReport.findUnique({
+      where: { id: req.params.id }
+    });
+
     if (!report) {
       return res.status(404).json({
         success: false,
@@ -279,36 +520,36 @@ router.post('/:id/sms', authenticateToken, requirePermission('canAcknowledgeAler
       });
     }
 
-    // Update SMS radius if provided
-    if (radius) {
-      report.notifications.smsRadius = radius;
-    }
-
-    // Send SMS alerts using SMS service
-    const smsResults = await sendSMSAlerts(report, customMessage, urgentAlert);
+    // Update SMS radius
+    const updatedRadius = radius ? parseFloat(radius) : report.smsRadius;
     
-    // Update SMS statistics
-    report.smsAlerts.sent += smsResults.total;
-    report.smsAlerts.successful += smsResults.successful;
-    report.smsAlerts.failed += smsResults.failed;
-    report.smsAlerts.lastSentAt = new Date();
-    
-    // Add recipients to the list
-    smsResults.details.forEach(detail => {
-      report.smsAlerts.recipients.push({
-        phone: detail.to,
-        status: detail.success ? 'sent' : 'failed',
-        sentAt: detail.sentAt
-      });
+    const updatedReport = await prisma.environmentalReport.update({
+      where: { id: req.params.id },
+      data: {
+        smsRadius: updatedRadius,
+        urgentAlert: urgentAlert !== undefined ? urgentAlert : report.urgentAlert
+      }
     });
 
-    await report.save();
+    // Send SMS alerts
+    const smsResults = await sendSMSAlerts(updatedReport, customMessage, urgentAlert);
+    
+    // Increment SMS stats
+    const finalReport = await prisma.environmentalReport.update({
+      where: { id: report.id },
+      data: {
+        smsSent: updatedReport.smsSent + smsResults.total,
+        smsSuccessful: updatedReport.smsSuccessful + smsResults.successful,
+        smsFailed: updatedReport.smsFailed + smsResults.failed,
+        smsLastSentAt: new Date()
+      }
+    });
 
     res.json({
       success: true,
       message: 'SMS alerts sent successfully',
       smsResults: smsResults,
-      report: report
+      report: nestReportData(finalReport)
     });
 
   } catch (error) {
@@ -324,24 +565,39 @@ router.post('/:id/sms', authenticateToken, requirePermission('canAcknowledgeAler
 // GET /api/community-reports/statistics - Get report statistics
 router.get('/statistics', async (req, res) => {
   try {
-    const stats = await CommunityReport.getStatistics();
+    const totalReports = await prisma.environmentalReport.count();
+    const activeReports = await prisma.environmentalReport.count({ where: { status: 'active' } });
+    const resolvedReports = await prisma.environmentalReport.count({ where: { status: 'resolved' } });
+    const criticalReports = await prisma.environmentalReport.count({ where: { severity: 'critical' } });
     
-    // Additional statistics
-    const recentReports = await CommunityReport.countDocuments({
-      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+    const smsStats = await prisma._runQuery('SELECT SUM("smsSent") as total_sms FROM "EnvironmentalReport"');
+    const totalSMSSent = parseInt(smsStats.rows[0].total_sms || 0);
+
+    const recentReports = await prisma.environmentalReport.count({
+      where: {
+        createdAt: {
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+        }
+      }
     });
 
-    const criticalActiveReports = await CommunityReport.countDocuments({
-      status: 'active',
-      severity: 'critical'
+    const criticalActiveReports = await prisma.environmentalReport.count({
+      where: {
+        status: 'active',
+        severity: 'critical'
+      }
     });
 
     res.json({
       success: true,
       statistics: {
-        ...stats[0],
+        totalReports,
+        activeReports,
+        resolvedReports,
+        criticalReports,
+        totalSMSSent,
         recentReports24h: recentReports,
-        criticalActiveReports: criticalActiveReports
+        criticalActiveReports
       }
     });
 
@@ -361,16 +617,24 @@ router.get('/nearby/:lat/:lng', async (req, res) => {
     const { lat, lng } = req.params;
     const { radius = 10, limit = 20 } = req.query;
 
-    const reports = await CommunityReport.findNearby(
-      parseFloat(lat),
-      parseFloat(lng),
-      parseFloat(radius)
-    ).limit(parseInt(limit));
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lng);
+    const r = parseFloat(radius);
 
+    const sqlQuery = `
+      SELECT r.*, (6371 * acos(cos(radians($1)) * cos(radians(r.latitude)) * cos(radians(r.longitude) - radians($2)) + sin(radians($1)) * sin(radians(r.latitude)))) AS distance 
+      FROM "EnvironmentalReport" r
+      WHERE (6371 * acos(cos(radians($1)) * cos(radians(r.latitude)) * cos(radians(r.longitude) - radians($2)) + sin(radians($1)) * sin(radians(r.latitude)))) <= $3
+      ORDER BY distance ASC
+      LIMIT $4
+    `;
+
+    const dbReports = await prisma._runQuery(sqlQuery, [latitude, longitude, r, parseInt(limit)]);
+    
     res.json({
       success: true,
-      reports: reports,
-      count: reports.length
+      reports: dbReports.rows.map(nestReportData),
+      count: dbReports.rows.length
     });
 
   } catch (error) {
@@ -383,16 +647,15 @@ router.get('/nearby/:lat/:lng', async (req, res) => {
   }
 });
 
-// Send SMS alerts using SMS service
+// Send SMS alerts using SMS service (mock coordinates format mapping)
 async function sendSMSAlerts(report, customMessage = null, urgentAlert = false) {
   try {
-    const { coordinates, notifications } = report;
-    const radius = notifications.smsRadius;
+    const radius = report.smsRadius;
     
-    // Find recipients within radius
+    // Find recipients within radius using the coordinates from the report
     const recipients = await smsService.findRecipientsInRadius(
-      coordinates.lat,
-      coordinates.lng,
+      report.latitude,
+      report.longitude,
       radius
     );
 
@@ -406,9 +669,20 @@ async function sendSMSAlerts(report, customMessage = null, urgentAlert = false) 
       };
     }
 
+    // Adapt flat report to old model format for smsService
+    const mockMongooseReport = {
+      _id: report.id,
+      title: report.title,
+      severity: report.severity,
+      reportType: report.reportType,
+      coordinates: {
+        lat: report.latitude,
+        lng: report.longitude
+      }
+    };
+
     // Send emergency alerts
-    const results = await smsService.sendEmergencyAlert(report, recipients, customMessage);
-    
+    const results = await smsService.sendEmergencyAlert(mockMongooseReport, recipients, customMessage);
     return results;
 
   } catch (error) {

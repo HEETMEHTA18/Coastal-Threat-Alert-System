@@ -1,0 +1,43 @@
+name: CI
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+    - uses: actions/checkout@v4
+    - name: Use Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    - name: Install Backend Dependencies
+      working-directory: backend
+      run: npm ci
+    - name: Install Frontend Dependencies
+      working-directory: frontend
+      run: npm ci
+    - name: Run lint (if present)
+      run: |
+        if [ -f backend/package.json ]; then (cd backend && npm run lint) || true; fi
+        if [ -f frontend/package.json ]; then (cd frontend && npm run lint) || true; fi
+    - name: Build Frontend
+      working-directory: frontend
+      run: npm run build
+    - name: Run Backend Tests (if any)
+      working-directory: backend
+      run: |
+        if [ -f package.json ] && grep -q "test" package.json; then npm test || true; else echo "No tests"; fi

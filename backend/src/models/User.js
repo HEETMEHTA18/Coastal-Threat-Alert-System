@@ -78,6 +78,9 @@ userSchema.index({ apiKey: 1 });
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   
+  const isAlreadyHashed = typeof this.password === 'string' && /^\$2[ayb]\$\d+\$[./A-Za-z0-9]{53}$/.test(this.password);
+  if (isAlreadyHashed) return next();
+  
   try {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
@@ -136,7 +139,7 @@ userSchema.methods.setRolePermissions = function() {
       this.permissions = {
         canCreateAlerts: false,
         canAcknowledgeAlerts: false,
-        canGenerateReports: false,
+        canGenerateReports: true,
         canManageUsers: false,
         canViewDashboard: true,
         canAccessAPI: false

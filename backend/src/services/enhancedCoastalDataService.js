@@ -196,7 +196,101 @@ class EnhancedCoastalDataService {
 
   // Get buoy network data for Indian coastal areas
   async getBuoyNetwork(bounds) {
-    // Define Indian coastal monitoring stations (Gujarat and Mumbai)
+    // If viewport bounds provided, attempt to load real buoy/station catalog from NOAA NDBC
+    if (bounds && bounds.sw && bounds.ne) {
+      try {
+        const sw = bounds.sw; const ne = bounds.ne;
+        const bbox = { minLat: Math.min(sw.lat, ne.lat), maxLat: Math.max(sw.lat, ne.lat), minLng: Math.min(sw.lng, ne.lng), maxLng: Math.max(sw.lng, ne.lng) };
+
+        // Fetch station table from NDBC (public text list)
+        const axios = require('axios');
+        const stationsTxtUrl = 'https://www.ndbc.noaa.gov/data/stations/station_table.txt';
+        const resp = await axios.get(stationsTxtUrl, { timeout: 10000 });
+        const lines = String(resp.data || '').split(/\r?\n/).filter(l => l.trim().length > 0);
+        const stations = [];
+        for (const line of lines) {
+          // Each line typically has station id, latitude, longitude, etc. We'll extract first token and the first two floats we find
+          const tokens = line.trim().split(/\s+/);
+          if (tokens.length < 3) continue;
+          const id = tokens[0];
+          // find floats in the line for lat/lon
+          const floatMatches = line.match(/-?\d+\.\d+/g);
+          if (!floatMatches || floatMatches.length < 2) continue;
+          const lat = parseFloat(floatMatches[0]);
+          const lng = parseFloat(floatMatches[1]);
+          if (isNaN(lat) || isNaN(lng)) continue;
+          // filter by bbox
+          if (lat >= bbox.minLat && lat <= bbox.maxLat && lng >= bbox.minLng && lng <= bbox.maxLng) {
+            stations.push({ id, name: tokens.slice(1,4).join(' '), coordinates: [lng, lat] });
+          }
+        }
+
+        // If stations found, enrich them with a quick realtime fetch if possible, otherwise simulated data
+        const enriched = [];
+        for (const s of stations.slice(0, 120)) { // cap to 120 stations to avoid flooding
+          let data = null;
+          try {
+            // try realtime2 text feed for station
+            const stationDataUrl = `https://www.ndbc.noaa.gov/data/realtime2/${s.id}.txt`;
+            const dresp = await axios.get(stationDataUrl, { timeout: 5000 });
+            // simple parsing: the last non-header line contains last values; we won't attempt full column mapping here
+            const dlines = String(dresp.data || '').split(/\r?\n/).filter(l => l.trim().length > 0);
+            const last = dlines[dlines.length - 1] || '';
+            data = this.parseRealtimeLine(last) || null;
+          } catch (e) {
+            // ignore realtime fetch failures - we'll simulate a lightweight observation
+            data = null;
+          }
+
+          enriched.push({
+            id: s.id,
+            name: s.name || s.id,
+            coordinates: s.coordinates,
+            type: 'ndbc_station',
+            state: 'catalog',
+            region: s.coordinates[1] >= 0 ? 'northern' : 'southern',
+            status: 'operational',
+            data: data || this.generateIndianCoastalData('buoy', 'global'),
+            environmental_conditions: this.getRegionalConditions(s.coordinates[1] >= 0 ? 'northern' : 'southern'),
+            last_updated: new Date().toISOString()
+          });
+        }
+
+        if (enriched.length > 0) return enriched;
+      } catch (err) {
+        // If NOAA fetch fails, fall back to viewport-simulated buoys
+        console.warn('NDBC station fetch failed or timed out:', err.message);
+      }
+
+      // viewport-simulated buoys fallback
+      const sw = bounds.sw; const ne = bounds.ne;
+      const latSpan = Math.abs(ne.lat - sw.lat);
+      const lngSpan = Math.abs(ne.lng - sw.lng);
+      const approxCount = Math.min(60, Math.max(6, Math.round((latSpan * lngSpan) * 8)));
+      const buoys = [];
+      for (let i = 0; i < approxCount; i++) {
+        const lat = sw.lat + Math.random() * latSpan;
+        const lng = sw.lng + Math.random() * lngSpan;
+        const id = `b_${Math.random().toString(36).substr(2,8)}`;
+        const region = (lat > 0) ? 'northern' : 'southern';
+        const type = Math.random() > 0.7 ? 'offshore_platform' : (Math.random() > 0.5 ? 'monitoring_station' : 'buoy');
+        buoys.push({
+          id,
+          name: `Buoy ${id}`,
+          coordinates: [lng, lat],
+          type,
+          state: 'dynamic',
+          region,
+          status: 'operational',
+          data: this.generateIndianCoastalData(type, region),
+          environmental_conditions: this.getRegionalConditions(region),
+          last_updated: new Date().toISOString()
+        });
+      }
+      return buoys;
+    }
+
+    // Fallback: return a set of predefined Indian stations
     const indianCoastalStations = [
       {
         id: 'mumbai_port',
@@ -224,55 +318,8 @@ class EnhancedCoastalDataService {
         state: 'Gujarat',
         region: 'arabian_sea',
         status: 'operational'
-      },
-      {
-        id: 'jamnagar_coast',
-        name: 'Jamnagar Coastal Station',
-        coordinates: [70.0661, 22.4707],
-        type: 'monitoring_station',
-        state: 'Gujarat',
-        region: 'gulf_of_kutch',
-        status: 'operational'
-      },
-      {
-        id: 'mumbai_offshore',
-        name: 'Mumbai Offshore Platform',
-        coordinates: [72.6500, 19.2500],
-        type: 'offshore_platform',
-        state: 'Maharashtra',
-        region: 'arabian_sea',
-        status: 'operational'
-      },
-      {
-        id: 'alibaug_coast',
-        name: 'Alibaug Coastal Monitor',
-        coordinates: [72.8717, 18.6414],
-        type: 'coastal_monitor',
-        state: 'Maharashtra',
-        region: 'arabian_sea',
-        status: 'operational'
-      },
-      {
-        id: 'porbandar_port',
-        name: 'Porbandar Port',
-        coordinates: [69.6293, 21.6417],
-        type: 'fishing_port',
-        state: 'Gujarat',
-        region: 'arabian_sea',
-        status: 'operational'
-      },
-      {
-        id: 'veraval_port',
-        name: 'Veraval Fishing Harbor',
-        coordinates: [70.3667, 20.9167],
-        type: 'fishing_port',
-        state: 'Gujarat',
-        region: 'arabian_sea',
-        status: 'operational'
       }
     ];
-
-    // Add simulated real-time data to each station
     return indianCoastalStations.map(station => ({
       ...station,
       data: this.generateIndianCoastalData(station.type, station.region),
@@ -345,6 +392,28 @@ class EnhancedCoastalDataService {
       station_info: stationInfo,
       quality: 'simulated'
     };
+  }
+
+  // Parse a realtime station line (very lightweight best-effort)
+  parseRealtimeLine(line) {
+    try {
+      if (!line || typeof line !== 'string') return null;
+      const parts = line.trim().split(/\s+/);
+      // find numeric tokens
+      const nums = parts.map(p => parseFloat(p)).filter(n => !isNaN(n));
+      if (nums.length < 1) return null;
+      const wave_height = nums[0];
+      return {
+        wave_height: wave_height || 0,
+        wave_period: nums[1] || null,
+        wave_direction: nums[2] || null,
+        wind_speed: nums[3] || null,
+        wind_direction: nums[4] || null,
+        raw: line
+      };
+    } catch (e) {
+      return null;
+    }
   }
 
   // Generate temperature grid

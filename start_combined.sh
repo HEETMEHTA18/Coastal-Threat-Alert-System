@@ -11,10 +11,10 @@ echo "📍 Node version: $(node --version)"
 echo "📍 NPM version: $(npm --version)"
 echo "📍 Python version: $(python3 --version)"
 
-# Start AI models on port 8000 in background
+# Start lightweight AI models on port 8000 in background
 echo "📍 Starting AI Models API on port 8000..."
 cd ai-models
-python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --log-level info &
+python3 mock_server.py &
 AI_PID=$!
 cd ..
 echo "✓ AI Models started with PID: ${AI_PID}"
@@ -38,7 +38,7 @@ echo "🚀 Executing: node src/server.js"
 echo "📍 Environment check:"
 echo "   PORT=$PORT"
 echo "   NODE_ENV=$NODE_ENV"
-echo "   MONGODB_URI=${MONGODB_URI:0:20}..."
+echo "   DATABASE_URL=${DATABASE_URL:0:20}..."
 echo "   JWT_SECRET=${JWT_SECRET:+set}"
 echo "-----------------------------------"
 exec node src/server.js

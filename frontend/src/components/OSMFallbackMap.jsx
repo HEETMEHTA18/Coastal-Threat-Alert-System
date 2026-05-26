@@ -2,7 +2,7 @@ import React from 'react';
 
 // Very small no-dependency fallback map using OpenStreetMap embed iframe.
 // Keeps UX functional when Mapbox token is missing in dev environments.
-const OSMFallbackMap = ({ center = [72.8777, 19.0760], zoom = 8, width = '100%', height = '480px' }) => {
+const OSMFallbackMap = ({ center = [0, 0], zoom = 1.5, width = '100%', height = '480px' }) => {
   // center is [lng, lat] to match Mapbox conventions used elsewhere
   const lon = Number(center[0]);
   const lat = Number(center[1]);
