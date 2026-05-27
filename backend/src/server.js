@@ -291,7 +291,7 @@ const startServer = async () => {
     // Bind to the specified host, or 0.0.0.0 in production (for Render/cloud deployments)
     // to receive external traffic, and default to 127.0.0.1 in local development to
     // avoid IPv6 all-address conflicts.
-    const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
+    const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' || process.env.RENDER === 'true' ? '0.0.0.0' : '127.0.0.1');
     const server = app.listen(PORT, HOST, () => {
       console.log(`
 🌊 CTAS Backend Server Starting...
