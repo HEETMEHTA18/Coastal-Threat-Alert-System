@@ -3,6 +3,8 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const { prisma } = require('../lib/db');
+const EmailService = require('../services/emailService');
+const emailService = new EmailService();
 
 // @route   GET /api/reports
 // @desc    Get all reports
@@ -115,6 +117,15 @@ router.post('/', async (req, res) => {
     } else {
       res.status(201).json({ status: 'success', data: localEntry, note: 'stored locally because DB insert failed' });
     }
+
+    // Fire-and-forget email notifications for report submission
+    (async () => {
+      try {
+        await emailService.sendReportNotification(created || localEntry);
+      } catch (err) {
+        console.error('Async report email notification failed:', err);
+      }
+    })();
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
   }

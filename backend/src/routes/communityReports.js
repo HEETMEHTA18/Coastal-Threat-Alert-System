@@ -1,6 +1,7 @@
 const express = require('express');
 const { prisma } = require('../lib/db');
 const SMSService = require('../services/smsService');
+const EmailService = require('../services/emailService');
 const { authenticateToken, requirePermission, requireRole } = require('../middleware/auth');
 const { flattenReportData, nestReportData } = require('../controllers/threatReportController');
 const router = express.Router();
@@ -17,8 +18,9 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// Initialize SMS service
+// Initialize SMS and Email services
 const smsService = new SMSService();
+const emailService = new EmailService();
 
 // Helper to calculate priority
 const calculatePriority = (severity, immediateRisk, evacuationNeeded) => {
@@ -130,7 +132,7 @@ router.post('/', authenticateToken, async (req, res) => {
       report: nestedReport
     });
 
-    // Fire-and-forget: send SMS alerts asynchronously and persist results
+    // Fire-and-forget: send SMS and Email alerts asynchronously and persist results
     (async () => {
       try {
         console.log('📨 Starting async SMS alerts for report', report.id);
@@ -147,8 +149,13 @@ router.post('/', authenticateToken, async (req, res) => {
           }
         });
         console.log('✅ Async SMS alerts completed for report', report.id);
+
+        // Send Email alerts
+        console.log('📨 Starting async Email notifications for report', report.id);
+        await emailService.sendReportNotification(report);
+        console.log('✅ Async Email notifications completed for report', report.id);
       } catch (err) {
-        console.error('Async SMS sending failed for report', report.id, err);
+        console.error('Async alerting (SMS/Email) failed for report', report.id, err);
       }
     })();
 
